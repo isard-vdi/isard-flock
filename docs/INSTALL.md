@@ -1,4 +1,4 @@
-# ISARD IN CUBES
+# ISARD FLOCK
 
 X = Cube number
 
