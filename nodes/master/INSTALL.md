@@ -10,6 +10,14 @@ The master node will have:
 ## Install
 - OS: CentOS 7 minimal
 
+### INSTALLATION FROM GIT
+dhclient eth0
+git clone https://github.com/isard-vdi/isard-flock && cd isard-flock/nodes/master
+edit parameters in first-master.sh
+run it
+
+# INSTALLATION RAW
+
 /etc/hosts
 
 ```

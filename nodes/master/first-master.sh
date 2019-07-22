@@ -86,26 +86,30 @@ rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7
 rpm -ivh linstor-client-0.9.8-1.noarch.rpm
 cd ../nodes/master
 systemctl enable --now linstor-controller
-
+sleep 5
 systemctl enable --now linstor-satellite
+sleep 5
 linstor node create if1 172.31.1.11
 
 linstor storage-pool create lvm if1 data drbdpool
 linstor resource-definition create isard
 linstor volume-definition create isard 470M
 linstor resource create isard --auto-place 1 --storage-pool data
+sleep 5
 mkfs.ext4 /dev/drbd/by-res/isard/0
 
 # PCS
+# PACEMAKER
+yum install -y corosync pacemaker pcs python-pycurl fence-agents-apc fence-agents-apc-snmp
 systemctl enable pcsd
 systemctl enable corosync
 systemctl enable pacemaker
 systemctl start pcsd
 usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
 pcs cluster auth if1 <<EOF
->hacluster
->isard-flock
->EOF
+hacluster
+isard-flock
+EOF
 
 
 pcs cluster setup --name isard if1
@@ -151,12 +155,11 @@ op monitor interval=30s
 
 pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
 
-pcs resource create linstor-controller systemd:linstor-controller
 
 pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
 pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
 
-
+pcs property set stonith-enabled=false
 
 # DOCKER
 #~ sudo yum remove docker \
