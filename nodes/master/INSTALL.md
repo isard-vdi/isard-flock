@@ -67,16 +67,17 @@ vgcreate drbdpool /dev/md0
 
 # DRBD (controller + satellite)
 rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-yum install https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
-yum install kmod-drbd90 drbd90-utils
+yum install -y https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
+yum install -y kmod-drbd90 drbd90-utils
 
+yum install -y git
 git clone https://github.com/isard-vdi/isard-flock && cd isard-flock
 cd linstor
 rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
 rpm -ivh rpm -ivh linstor-client-0.9.8-1.noarch.rpm
 cd ..
 systemctl enable --now linstor-controller
-linstor node create isardflock1 172.31.1.11
+linstor node create if1 172.31.1.11
 systemctl enable --now linstor-satellite
 
 linstor storage-pool create lvm isardflock1 data drbdpool
@@ -94,10 +95,11 @@ systemctl enable corosync
 systemctl enable pacemaker
 systemctl start pcsd
 passwd hacluster
-pcs cluster auth ic1-cluster
-pcs cluster setup --name isard ic1-cluster
+# usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
+pcs cluster auth if1
+pcs cluster setup --name isard if1
 pcs cluster enable
-pcs cluster start ic1-cluster
+pcs cluster start if1
 
 # DOCKER & Isard
 sudo yum remove docker \
@@ -126,4 +128,18 @@ systemctl enable --now linstor-docker-volume.service
 cp docker/docker-compose.yml /opt/isard
 cd /opt/isard
 docker-compose up -d
+```
+
+
+
+Keep package list versions
+
+```bash
+rpm -qa | sort > pkglist.txt
+```
+
+
+
+```
+yum install $(cat /root/pkglist.txt|xargs)
 ```

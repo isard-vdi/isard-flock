@@ -211,7 +211,20 @@ linstor storage-pool create lvm isardcube4 data drbdpool
 linstor resource create isard --auto-place 3 --storage-pool data
 ```
 
+**IMPORTANT**
+
+Linstor-satellite does remove all resources found in /var/lib/linstor.d as it hopes that they will be populated again when the linstor-controller contacts it again. If the linstor-controller is no available no resources will be up.
+
+So if we miss the controller the won't be any drbd resources. One workaround is to modify linstor-satellite.service and add --keep-res isard at the ExecStart line:
+
+```bash
+ExecStart=/usr/share/linstor-server/bin/Satellite --logs=/var/log/linstor-satellite --config-directory=/etc/linstor --keep-res isard
+```
+
+And this should be done in all the nodes.
+
 ### LINSTOR-CLIENT
+
 Linstor client should be installed in all nodes that can be a controller. Remember that the controller will be set in a node (that has storage) in HA by pacemaker. 
 
 ```bash
@@ -292,8 +305,8 @@ Now mount it in a node and create filesystem:
 
 ```bash
 mkdir /opt/isard
-mkfs.ext4 /dev/drbd1000
-mount /dev/drbd1000 /opt/isard
+mkfs.ext4 /dev/drbd/by-res/isard/0
+mount /dev/drbd/by-res/isard/0 /opt/isard
 ```
 
 REFERENCES:
@@ -322,15 +335,15 @@ TODO
 linstor resource delete isardcube2 isardcube1 isard
 linstor volume-definition set-size isard 0 450G
 linstor resource create isard --auto-place 2 --storage-pool data
-mkfs.ext4 /dev/drbd1000
+mkfs.ext4 /dev/drbd/by-res/isard/0
 ```
 
 ### Growing ext4
 
 ```
 linstor volume-definition set-size isard 0 470G
-e2fsck -f /dev/drbd1000
-resize2fs /dev/drbd1000
+e2fsck -f /dev/drbd/by-res/isard/0
+resize2fs /dev/drbd/by-res/isard/0
 ```
 
 ## Docker & Isard
@@ -426,6 +439,79 @@ Start cluster and enable nodes
 pcs cluster start
 pcs cluster enable --all
 ```
+
+```bash
+## THIS IS NEEDED FOR HA LINSTOR-CONTROLLER.
+## The database should be shared along all the storage nodes that can become a linstor-controller
+
+linstor resource-definition create linstordb
+linstor volume-definition create linstordb 250M
+linstor resource create linstordb --auto-place 2 --storage-pool data
+
+systemctl stop linstor-controller
+rsync -avp /var/lib/linstor /tmp/
+mkfs.ext4 /dev/drbd/by-res/linstordb/0
+rm -rf /var/lib/linstor/*
+mount /dev/drbd/by-res/linstordb/0 /var/lib/linstor
+rsync -avp /tmp/linstor/ /var/lib/linstor/
+
+pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=bases op monitor interval=15s role=Master op monitor interval=30s role=Slave
+pcs resource master linstordb-drbd-clone linstordb-drbd master-max=1 master-node-max=1 clone-max=2 clone-node-max=1 notify=true
+pcs resource create linstordb-fs Filesystem \
+        params device="/dev/drbd/by-res/linstordb/0" directory="/var/lib/linstor" \
+        op start interval=0 timeout=60s \
+        op stop interval=0 timeout=100s \
+        op monitor interval=20s timeout=40s
+pcs resource create linstor-controller systemd:linstor-controller \
+        op start interval=0 timeout=100s
+        op stop interval=0 timeout=100s
+        op monitor interval=30s timeout=100s
+
+## NOW THE FILESYSTEM
+pcs resource create isard_fs Filesystem device="/dev/drbd/by-res/isard/0" directory="/opt/isard" fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
+
+pcs resource create nfs-daemon systemd:nfs-server \
+nfs_shared_infodir=/opt/isard/nfsinfo nfs_no_notify=true op monitor interval=30s
+pcs resource create nfs-root exportfs \
+clientspec=172.31.0.0/255.255.255.0 \
+options=rw,crossmnt,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash \
+directory=/opt/ \
+fsid=0
+
+pcs resource create isard_data exportfs \
+clientspec=172.31.0.0/255.255.255.0 \
+wait_for_leasetime_on_stop=true \
+options=rw,mountpoint,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash directory=/opt/isard \
+fsid=11 \
+op monitor interval=30s
+
+pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
+
+pcs resource group add isard-storage linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
+
+pcs constraint order \
+	promote linstordb-drbd-clone then isard-storage INFINITY \
+	require-all=true symmetrical=true \
+	setoptions kind=Mandatory
+	
+pcs constraint colocation add \
+	isard-storage with master linstordb-drbd-clone INFINITY
+```
+
+
+
+```bash
+pcs resource create nfs-mount ocf:heartbeat:Filesystem device="172.31.0.1:/isard" directory="/opt/isard" fstype="nfs"
+```
+
+- clone isard-nfs-mount to all except where group isard-storage is running
+
+```
+pcs resource clone nfs-mount 
+pcs constraint colocation add isard-storage with nfs-mount-clone -INFINITY
+```
+
+
 
 ## Espurna as Stonith
 
