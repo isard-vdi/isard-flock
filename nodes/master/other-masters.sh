@@ -2,7 +2,7 @@
 
 ## yum install -y git && git clone https://github.com/isard-vdi/isard-flock && cd isard-flock/nodes/master/ && bash first-master.sh
 
-host=1
+host=2
 # viewers internet drbd nas
 interfaces=(eth0 - eth2 eth1)
 
@@ -63,10 +63,6 @@ echo "if$host" > /etc/hostname
 sysctl -w kernel.hostname=if$host
 cp ../hosts /etc/hosts
 
-ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
-cp ~/.ssh/id_dsa.pub ~/.ssh/authorized_keys
-yum install -y sshpass rsync 
-
 # Interface set
 ifnames=(viewers internet drbd nas)
 iifnames=0
@@ -92,20 +88,15 @@ cd ../../linstor
 rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
 rpm -ivh linstor-client-0.9.8-1.noarch.rpm
 cd ../nodes/master
-systemctl enable --now linstor-controller
-sleep 5
 echo "[global]" > /etc/linstor/linstor-client.conf
 echo "controllers=if1,if2,if3,if4,if5,if6,if7,if8" >> /etc/linstor/linstor-client.conf
 systemctl enable --now linstor-satellite
 sleep 5
 linstor node create if$host 172.31.1.1$host
-
-linstor storage-pool create lvm if$host data drbdpool
-linstor resource-definition create isard
-linstor volume-definition create isard 470M
-linstor resource create isard --auto-place 1 --storage-pool data
 sleep 5
-mkfs.ext4 /dev/drbd/by-res/isard/0
+linstor storage-pool create lvm if$host data drbdpool
+linstor resource create isard --auto-place 2 --storage-pool data
+sleep 5
 
 # PCS
 # PACEMAKER
@@ -115,60 +106,26 @@ systemctl enable corosync
 systemctl enable pacemaker
 systemctl start pcsd
 usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
-pcs cluster auth if$host <<EOF
-hacluster
-isard-flock
-EOF
+#~ pcs cluster auth if$host <<EOF
+#~ hacluster
+#~ isard-flock
+#~ EOF
 
 
-pcs cluster setup --name isard if$host
-pcs cluster enable
-pcs cluster start if$host
+#~ pcs cluster setup --name isard if$host
+#~ pcs cluster enable
+#~ pcs cluster start if$host
 
 ## LINSTORDB STORAGE
-linstor resource-definition create linstordb
-linstor volume-definition create linstordb 250M
-linstor resource create linstordb --auto-place 1 --storage-pool data
+#linstor resource create linstordb --auto-place 2 --storage-pool data
 
-systemctl disable --now linstor-controller
-rsync -avp /var/lib/linstor /tmp/
-mkfs.ext4 /dev/drbd/by-res/linstordb/0
-rm -rf /var/lib/linstor/*
-mount /dev/drbd/by-res/linstordb/0 /var/lib/linstor
-rsync -avp /tmp/linstor/ /var/lib/linstor/
-
-pcs resource create linstordb-fs Filesystem \
-        device="/dev/drbdpool/linstordb_00000" directory="/var/lib/linstor" \
-        fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
-pcs resource create linstor-controller systemd:linstor-controller
 
 ## ISARD STORAGE
 mkdir /opt/isard
-pcs resource create isard_fs Filesystem device="/dev/drbd/by-res/isard/0" directory="/opt/isard" fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
 
 yum install nfs-utils -y
-pcs resource create nfs-daemon systemd:nfs-server 
-pcs resource create nfs-root exportfs \
-clientspec=172.31.0.0/255.255.255.0 \
-options=rw,crossmnt,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash \
-directory=/opt/ \
-fsid=0
-
-pcs resource create isard_data exportfs \
-clientspec=172.31.0.0/255.255.255.0 \
-wait_for_leasetime_on_stop=true \
-options=rw,mountpoint,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash directory=/opt/isard \
-fsid=11 \
-op monitor interval=30s
 
 
-pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
-
-
-pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
-pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
-
-pcs property set stonith-enabled=false
 
 # DOCKER
 #~ sudo yum remove docker \
