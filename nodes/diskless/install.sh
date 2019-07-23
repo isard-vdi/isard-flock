@@ -1,13 +1,9 @@
 #!/bin/bash
 
-## yum install -y git && git clone https://github.com/isard-vdi/isard-flock && cd isard-flock/nodes/master/ && bash first-master.sh
-
-host=2
+host=3
 # viewers internet drbd nas
-interfaces=(eth0 - eth2 eth1)
+interfaces=(eth0 - - eth1)
 
-raid_level=1
-raid_devs=(/dev/vdb /dev/vdc)
 
 # Remove al connections
 remove_all_if(){
@@ -44,18 +40,6 @@ systemctl disable --now firewalld
 sed -i s/^SELINUX=.*$/SELINUX=disabled/ /etc/selinux/config && setenforce 0
 setenforce 0
 
-# raid
-set_raid(){
-	yum install -y mdadm lvm2
-	for d in "${raid_devs[@]}" 
-	do
-		dd if=/dev/zero of=$d bs=2048 count=4096
-	done
-	yes | mdadm --create --verbose /dev/md0 --level=$raid_level --raid-devices=${#raid_devs[@]} ${raid_devs[@]}
-	sudo mdadm --detail --scan > /etc/mdadm.conf
-	pvcreate /dev/md0
-	vgcreate drbdpool /dev/md0
-}
 
 
 # Hostname
@@ -76,28 +60,6 @@ do
 done
 
 systemctl enable --now chronyd
-# Raid
-set_raid
-
-# DRBD
-rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-yum install -y https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
-yum install -y kmod-drbd90 drbd90-utils
-
-yum install -y git java-1.8.0-openjdk
-cd ../../linstor
-rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
-rpm -ivh linstor-client-0.9.8-1.noarch.rpm
-cd ../nodes/master
-echo "[global]" > /etc/linstor/linstor-client.conf
-echo "controllers=if1,if2,if3,if4,if5,if6,if7,if8" >> /etc/linstor/linstor-client.conf
-systemctl enable --now linstor-satellite
-sleep 5
-linstor node create if$host 172.31.1.1$host
-sleep 5
-linstor storage-pool create lvm if$host data drbdpool
-linstor resource create isard --auto-place 2 --storage-pool data
-sleep 5
 
 # PCS
 # PACEMAKER
@@ -118,10 +80,6 @@ usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
 #~ pcs cluster setup --name isard if$host
 #~ pcs cluster enable
 #~ pcs cluster start if$host
-
-## LINSTORDB STORAGE
-linstor resource create linstordb --auto-place 2 --storage-pool data
-
 
 ## ISARD STORAGE
 mkdir /opt/isard

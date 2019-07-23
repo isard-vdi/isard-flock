@@ -455,8 +455,8 @@ rm -rf /var/lib/linstor/*
 mount /dev/drbd/by-res/linstordb/0 /var/lib/linstor
 rsync -avp /tmp/linstor/ /var/lib/linstor/
 
-pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=bases op monitor interval=15s role=Master op monitor interval=30s role=Slave
-pcs resource master linstordb-drbd-clone linstordb-drbd master-max=1 master-node-max=1 clone-max=2 clone-node-max=1 notify=true
+pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=linstordb op monitor interval=15s role=Master op monitor interval=30s role=Slave
+pcs resource master linstordb-drbd-clone linstordb-drbd master-max=1 master-node-max=1 clone-max=8 clone-node-max=1 notify=true
 pcs resource create linstordb-fs Filesystem \
         params device="/dev/drbd/by-res/linstordb/0" directory="/var/lib/linstor" \
         op start interval=0 timeout=60s \

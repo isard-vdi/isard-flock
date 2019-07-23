@@ -65,7 +65,7 @@ cp ../hosts /etc/hosts
 
 ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
 cp ~/.ssh/id_dsa.pub ~/.ssh/authorized_keys
-yum install -y sshpass rsync 
+yum install -y sshpass rsync nc
 
 # Interface set
 ifnames=(viewers internet drbd nas)
@@ -79,6 +79,7 @@ do
 	iifnames=$((iifnames+1))
 done
 
+systemctl enable --now chronyd
 # Raid
 set_raid
 
@@ -137,10 +138,27 @@ rm -rf /var/lib/linstor/*
 mount /dev/drbd/by-res/linstordb/0 /var/lib/linstor
 rsync -avp /tmp/linstor/ /var/lib/linstor/
 
+#pcs stonith create stonith-rsa-if1 fence_rsa action=off ipaddr="if1" login=root pcmk_host_list=if1 secure=true
+pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=linstordb op monitor interval=15s role=Master op monitor interval=30s role=Slave
+pcs resource master linstordb-drbd-clone linstordb-drbd master-max=1 master-node-max=1 clone-max=8 clone-node-max=1 notify=true
 pcs resource create linstordb-fs Filesystem \
-        device="/dev/drbdpool/linstordb_00000" directory="/var/lib/linstor" \
+        device="/dev/drbd/by-res/linstordb/0" directory="/var/lib/linstor" \
         fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
 pcs resource create linstor-controller systemd:linstor-controller
+
+pcs resource group add linstor linstordb-fs linstor-controller
+pcs constraint order promote linstordb-drbd-clone then linstor INFINITY \
+	require-all=true symmetrical=true \
+	setoptions kind=Mandatory
+pcs constraint colocation add \
+	linstor with master linstordb-drbd-clone INFINITY 
+
+pcs property set no-quorum-policy=ignore
+
+#~ pcs resource create linstordb-fs Filesystem \
+        #~ device="/dev/drbdpool/linstordb_00000" directory="/var/lib/linstor" \
+        #~ fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
+
 
 ## ISARD STORAGE
 mkdir /opt/isard
@@ -169,6 +187,13 @@ pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemo
 pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
 
 pcs property set stonith-enabled=false
+
+## nfs mounts
+pcs resource create nfs-client Filesystem \
+        device=isard-nas:/isard directory="/opt/isard" \
+        fstype="nfs" "options=defaults,noatime" op monitor interval=10s
+pcs resource clone nfs-client clone-max=8 clone-node-max=8 notify=true
+pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
 
 # DOCKER
 #~ sudo yum remove docker \
