@@ -1,2 +1,2 @@
-0/1 * * * * root /root/cron-isard-new.sh
+0/1 * * * * root bash -c "/root/cron-isard-new.sh"
 

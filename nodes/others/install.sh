@@ -158,13 +158,7 @@ create_drbdpool(){
 	#~ systemctl enable --now linstor-satellite
 }
 
-set_storage(){
-	if [[ $raid_level == -1 ]] ; then
-		set_storage_dialog	
-	else
-		create_raid
-	fi	
-}
+
 
 set_storage_dialog(){
 	var=""
@@ -218,6 +212,14 @@ set_storage_dialog(){
 
 }
 
+set_storage(){
+	if [[ $raid_level == -1 ]] ; then
+		set_storage_dialog	
+	else
+		create_raid
+	fi	
+}
+
 set_pacemaker(){
 	yum install -y corosync pacemaker pcs python-pycurl fence-agents-apc fence-agents-apc-snmp
 	systemctl enable pcsd
@@ -258,7 +260,7 @@ install_base_pkg
 get_ifs
 
 # STORAGE
-devs=($(lsblk -d -n -oNAME,RO | grep '0$' | awk {'print $1'}))
+devs=($(lsblk -d -n -oNAME,RO | grep '0$' | awk '!/sr0/' | awk {'print $1'}))
 if [[ ${#devs[@]} -gt 2 ]]; then
 	# secondary master
 	set_viewers_if
