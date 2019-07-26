@@ -35,5 +35,8 @@ set_if(){
 	ip link set $new_if up
 }
 
+host=$1
+echo "if$host" > /etc/hostname
+sysctl -w kernel.hostname=if$host
 remove_10g_ifs
 update_ifs
