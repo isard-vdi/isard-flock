@@ -18,9 +18,10 @@ fi
 #~ scp -r /root/isard-flock isard-new:/root/
 
 # Set new host IP
-# ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/master/set_ip.sh -h $host> /dev/null 2>&1 &'"
-# - set new node ips
-# - (try ssh again?? wait to be configured with new ip???)
+ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/others/set_ip.sh $host> /dev/null 2>&1 &'"
+while nc -z "if$host" 22 2>/dev/null; do
+  sleep 1
+done
 
 while ! ping -c 1 172.31.1.1$host &> /dev/null
 do
