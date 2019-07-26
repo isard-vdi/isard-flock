@@ -6,12 +6,12 @@
 #~ 3. DISKLESS (PACEMAKER+NFS)
 
 # exit when any command fails
-set -e
+#~ set -e
 
 # keep track of the last executed command
-trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+#~ trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 # echo an error message before exiting
-trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
+#~ trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 
 # Defaults (If set will bypass tui selection menu)
 if_viewers='' 	#'eth0'
@@ -153,7 +153,7 @@ create_drbdpool(){
 	rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
 	rpm -ivh linstor-client-0.9.8-1.noarch.rpm
 	cd ..
-	cp linstor-client.conf /etc/linstor/
+	cp ../linstor-client.conf /etc/linstor/
 	cd ../nodes/others
 	#~ systemctl enable --now linstor-satellite
 }
