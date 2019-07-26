@@ -101,10 +101,10 @@ yum install -y https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
 yum install -y kmod-drbd90 drbd90-utils
 
 yum install -y git java-1.8.0-openjdk
-cd ../../linstor
-rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
+cd ../_data/linstor
+rpm -ivh python-linstor-0.9.8-1.noarch.rpm linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm 
 rpm -ivh linstor-client-0.9.8-1.noarch.rpm
-cd ../nodes/master
+cd ../master
 systemctl enable --now linstor-controller
 sleep 5
 cp ../_data/linstor-client.conf /etc/linstor/

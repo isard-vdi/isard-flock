@@ -21,7 +21,7 @@ if_nas='' 		#'eth3'
 
 raid_level=-1 	#1
 raid_devices=() #(/dev/vdb /dev/vdc)
-pv_device="" 	#"/dev/md0"
+pv_device='' 	#"/dev/md0"
 
 ## FUNCTIONS
 install_base_pkg(){
@@ -226,14 +226,34 @@ set_pacemaker(){
 	systemctl start pcsd
 }
 
+set_docker(){
+	sudo yum remove docker \
+					  docker-client \
+					  docker-client-latest \
+					  docker-common \
+					  docker-latest \
+					  docker-latest-logrotate \
+					  docker-logrotate \
+					  docker-engine
+	sudo yum install -y yum-utils \
+	  device-mapper-persistent-data \
+	  lvm2
+	sudo yum-config-manager \
+		--add-repo \
+		https://download.docker.com/linux/centos/docker-ce.repo
+	sudo yum install -y docker-ce docker-ce-cli containerd.io
 
+	sudo curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+	chmod +x /usr/local/bin/docker-compose
+		
+}
 
 
 
 #### CHECK TYPE OF NODE
 # INTERFACES
-cp ../_data/hosts /etc/hosts
-cp set_ips.sh /root
+scp ../_data/hosts /etc/hosts
+#~ cp set_ips.sh /root
 install_base_pkg
 get_ifs
 
