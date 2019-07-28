@@ -148,11 +148,12 @@ create_raid(){
 create_drbdpool(){
 	yum install -y lvm2
 	yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
-	pvcreate pv_device
-	vgcreate drbdpool pv_device
+	pvcreate $pv_device
+	vgcreate drbdpool $pv_device
 	cd ../_data/linstor
-	rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
+	rpm -ivh python-linstor-0.9.8-1.noarch.rpm linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm
 	rpm -ivh linstor-client-0.9.8-1.noarch.rpm
+	cd ..
 	cp linstor-client.conf /etc/linstor/
 	cd ../nodes/others
 	#~ systemctl enable --now linstor-satellite
