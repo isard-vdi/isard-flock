@@ -157,6 +157,7 @@ create_drbdpool(){
 		./resources/linstor-satellite-0.9.12-1.el7.noarch.rpm \
 		./resources/linstor-client-0.9.8-1.noarch.rpm
 	cp ./resources/linstor-satellite.service /usr/lib/systemd/system
+	cp ./resources/linstor-controller.service /usr/lib/systemd/system
 	cp ./resources/linstor-client.conf /etc/linstor/
 	#~ systemctl enable --now linstor-satellite (it is done when setting it up)
 }
