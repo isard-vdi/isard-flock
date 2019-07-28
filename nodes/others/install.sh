@@ -163,7 +163,7 @@ create_drbdpool(){
 set_storage_dialog(){
 	var=""
 	i=1
-	for dev in $devs
+	for dev in ${devs[@]}
 	do
 		if [[ $var == "" ]]; then
 			var="$var $i $dev off "
@@ -178,26 +178,23 @@ set_storage_dialog(){
 		cmd=(dialog --menu --stdout "Select storage device:" 0 0 0 )
 		options=($var)
 		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
-		echo ${choices[@]}
 		pv_device="dev/${devs[0]}"
-		echo $pv_device
-		#create_drbdpool
+		create_drbdpool
 	fi
 	if [[ ${#devs[@]} -eq 3 ]]; then
 		# RAID 1 - 2 DISKS
 		cmd=(dialog --separate-output --checklist "Select 2 devices for RAID 1:" 22 76 16)
 		options=($var)
 		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
-		echo ${choices[@]}
 		for c in $choices
 		do
 			raid_sdevs="$raid_sdevs /dev/${devs[$(($c-1))]}"
 		done
 		raid_devices=(${raid_sdevs[@]})
 		raid_level=1
-		#create_raid
+		create_raid
 		pv_device="/dev/md0"
-		#create_drbdpool
+		create_drbdpool
 	fi
 	if [[ ${#devs[@]} -eq 4 ]]; then
 		# RAID 1 - 2 DISKS + SPARE
