@@ -54,7 +54,7 @@ set_if(){
 	if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
 		net=0
 		if [[ $new_if == "drbd" ]]; then net=1; fi
-		nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 172.31.$net.254/24
+		nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 172.31.$net.$host/24
 	else
 		nmcli con add con-name "$new_if" ifname $old_if type ethernet ipv4.method auto
 	fi
@@ -180,19 +180,7 @@ set_storage_dialog(){
 		# RAID 1 - 2 DISKS
 		cmd=(dialog --separate-output --checklist "Select 2 devices for RAID 1:" 22 76 16)
 		options=($var)
-		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
-
-		if [[ $master_node == -1 ]]; then
-			dialog --title "Maste node" \
-			--backtitle "Is this the first (master) node?" \
-			--yesno "Set up as MASTER node?" 7 60
-			if [[ $? == 0 ]] ; then
-				master_node=1
-			else
-				master_node=0
-			fi
-		fi
-		
+		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)		
 		for c in $choices
 		do
 			raid_sdevs="$raid_sdevs /dev/${devs[$(($c-1))]}"
@@ -257,8 +245,6 @@ set_docker(){
 
 #### MASTER FUNCTIONS ####
 set_master_node(){
-	host=1
-
 	# Hostname & keys & ntp & basic packages
 	echo "if$host" > /etc/hostname
 	sysctl -w kernel.hostname=if$host
@@ -373,6 +359,19 @@ EOF
 
 ##########################
 
+if [[ $master_node == -1 ]]; then
+	dialog --title "Maste node" \
+	--backtitle "Is this the first (master) node?" \
+	--yesno "Set up as MASTER node?" 7 60
+	if [[ $? == 0 ]] ; then
+		master_node=1
+		host=1
+	else
+		master_node=0
+		host=254 # Isard new
+	fi
+fi
+
 scp ./resources/hosts /etc/hosts
 install_base_pkg
 get_ifs
@@ -403,6 +402,9 @@ if [[ ${#devs[@]} -eq 2 ]]; then
 	set_storage
 	set_pacemaker
 	set_docker
+	if [[ $master_node == 1 ]]; then
+		set_master_node
+	fi
 fi
 if [[ ${#devs[@]} -eq 1 ]]; then
 	# diskless
