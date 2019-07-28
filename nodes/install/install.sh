@@ -54,7 +54,12 @@ set_if(){
 	if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
 		net=0
 		if [[ $new_if == "drbd" ]]; then net=1; fi
-		nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 172.31.$net.$host/24
+		if [[ $host == 1 ]]; then
+			fhost=11
+		else
+			fhost=254
+		fi
+		nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 172.31.$net.$fhost/24
 	else
 		nmcli con add con-name "$new_if" ifname $old_if type ethernet ipv4.method auto
 	fi
@@ -359,6 +364,9 @@ EOF
 
 ##########################
 
+scp ./resources/hosts /etc/hosts
+install_base_pkg
+
 if [[ $master_node == -1 ]]; then
 	dialog --title "Maste node" \
 	--backtitle "Is this the first (master) node?" \
@@ -372,8 +380,6 @@ if [[ $master_node == -1 ]]; then
 	fi
 fi
 
-scp ./resources/hosts /etc/hosts
-install_base_pkg
 get_ifs
 
 # STORAGE
