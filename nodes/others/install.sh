@@ -23,6 +23,8 @@ raid_level=-1 	#1
 raid_devices=() #(/dev/vdb /dev/vdc)
 pv_device='' 	#"/dev/md0"
 
+master_node=-1  # 1 yes, 0 no
+
 ## FUNCTIONS
 install_base_pkg(){
 	systemctl disable --now firewalld
@@ -31,6 +33,7 @@ install_base_pkg(){
 	rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
 	yum install -y https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
 	yum install -y nano git sshpass rsync nc dialog
+	systemctl enable --now chronyd
 }
 
 remove_all_if(){
@@ -187,6 +190,18 @@ set_storage_dialog(){
 		cmd=(dialog --separate-output --checklist "Select 2 devices for RAID 1:" 22 76 16)
 		options=($var)
 		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+
+		if [[ $master_node == -1 ]]; then
+			dialog --title "Maste node" \
+			--backtitle "Is this the first (master) node?" \
+			--yesno "Set up as MASTER node?" 7 60
+			if [[ $? == 0 ]] ; then
+				master_node=1
+			else
+				master_node=0
+			fi
+		fi
+		
 		for c in $choices
 		do
 			raid_sdevs="$raid_sdevs /dev/${devs[$(($c-1))]}"
@@ -249,11 +264,125 @@ set_docker(){
 }
 
 
+#### MASTER FUNCTIONS ####
+set_master_node(){
+	host=1
 
-#### CHECK TYPE OF NODE
-# INTERFACES
+	# Hostname & keys & ntp & basic packages
+	echo "if$host" > /etc/hostname
+	sysctl -w kernel.hostname=if$host
+
+	ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
+	cp ~/.ssh/id_dsa.pub ~/.ssh/authorized_keys
+
+	### DRBD
+	# Enable services
+	systemctl enable --now linstor-controller
+	sleep 5
+	cp ../_data/linstor-client.conf /etc/linstor/
+	systemctl enable --now linstor-satellite
+	sleep 5
+	
+	# Create node & resources
+	linstor node create if$host 172.31.1.1$host
+	linstor storage-pool create lvm if$host data drbdpool
+	linstor resource-definition create isard
+	linstor volume-definition create isard 470M
+	linstor resource create isard --auto-place 1 --storage-pool data
+	sleep 5
+
+	# Create filesystem
+	mkfs.ext4 /dev/drbd/by-res/isard/0
+
+	## LINSTORDB STORAGE
+	# Linstor saves it's data in /var/lib/linstor. In order to have this
+	# data HA we should create a new resource that will be held by pcs
+	# as a Master/Slave, not as a drbd9 one.
+	linstor resource-definition create linstordb
+	linstor volume-definition create linstordb 250M
+	linstor resource create linstordb --auto-place 1 --storage-pool data
+	systemctl disable --now linstor-controller
+	rsync -avp /var/lib/linstor /tmp/
+	mkfs.ext4 /dev/drbd/by-res/linstordb/0
+	rm -rf /var/lib/linstor/*
+	mount /dev/drbd/by-res/linstordb/0 /var/lib/linstor
+	rsync -avp /tmp/linstor/ /var/lib/linstor/
+	
+	### PACEMAKER
+	# Add host & start cluster
+	usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
+	pcs cluster auth if$host <<EOF
+hacluster
+isard-flock
+EOF
+	pcs cluster setup --name isard if$host
+	pcs cluster enable
+	pcs cluster start if$host
+
+	# Stonith 
+	#pcs stonith create stonith-rsa-if1 fence_rsa action=off ipaddr="if1" login=root pcmk_host_list=if1 secure=true
+	pcs property set stonith-enabled=false
+	
+	# Linstordb Master/Slave & linstor controller
+	pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=linstordb op monitor interval=15s role=Master op monitor interval=30s role=Slave
+	pcs resource master linstordb-drbd-clone linstordb-drbd master-max=1 master-node-max=1 clone-max=8 clone-node-max=1 notify=true
+	pcs resource create linstordb-fs Filesystem \
+			device="/dev/drbd/by-res/linstordb/0" directory="/var/lib/linstor" \
+			fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
+	pcs resource create linstor-controller systemd:linstor-controller
+
+	pcs resource group add linstor linstordb-fs linstor-controller
+	pcs constraint order promote linstordb-drbd-clone then linstor INFINITY \
+		require-all=true symmetrical=true \
+		setoptions kind=Mandatory
+	pcs constraint colocation add \
+		linstor with master linstordb-drbd-clone INFINITY 
+
+	# Cluster needed policy
+	pcs property set no-quorum-policy=ignore
+
+	# Isard storage & nfs exports
+	mkdir /opt/isard
+	pcs resource create isard_fs Filesystem device="/dev/drbd/by-res/isard/0" directory="/opt/isard" fstype="ext4" "options=defaults,noatime,nodiratime,noquota" op monitor interval=10s
+
+	yum install nfs-utils -y
+	pcs resource create nfs-daemon systemd:nfs-server 
+	pcs resource create nfs-root exportfs \
+	clientspec=172.31.0.0/255.255.255.0 \
+	options=rw,crossmnt,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash \
+	directory=/opt/ \
+	fsid=0
+
+	pcs resource create isard_data exportfs \
+	clientspec=172.31.0.0/255.255.255.0 \
+	wait_for_leasetime_on_stop=true \
+	options=rw,mountpoint,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash directory=/opt/isard \
+	fsid=11 \
+	op monitor interval=30s
+
+	# Isard floating IP
+	pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
+
+	# Group and constraints
+	pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
+	pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
+
+	## NFS client nodes configuration (should avoid isard nfs server colocation)
+	pcs resource create nfs-client Filesystem \
+			device=isard-nas:/isard directory="/opt/isard" \
+			fstype="nfs" "options=defaults,noatime" op monitor interval=10s
+	pcs resource clone nfs-client clone-max=8 clone-node-max=8 notify=true
+	pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
+		
+	### This cron will monitor for new nodes (isard-new) and lauch auto config
+	cp cron-isard-new.sh /root
+	chmod a+x /root/cron-isard-new.sh
+	cp cron-isard-new /etc/cron.d/	
+}
+
+##########################
+
 scp ../_data/hosts /etc/hosts
-#~ cp set_ips.sh /root
 install_base_pkg
 get_ifs
 
@@ -269,6 +398,9 @@ if [[ ${#devs[@]} -gt 2 ]]; then
 	set_storage
 	set_pacemaker
 	set_docker
+	if [[ $master_node == 1 ]]; then
+		set_master_node
+	fi
 fi
 if [[ ${#devs[@]} -eq 2 ]]; then
 	# replica
