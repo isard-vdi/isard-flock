@@ -75,6 +75,7 @@ set_if(){
 		ip link set $new_if mtu 9000
 	fi
 	ip link set $new_if up
+    nmcli con up "$new_if"
 	get_ifs
 }
 
@@ -152,8 +153,7 @@ create_drbdpool(){
 	cd ../_data/linstor
 	rpm -ivh linstor-common-0.9.12-1.el7.noarch.rpm  linstor-controller-0.9.12-1.el7.noarch.rpm  linstor-satellite-0.9.12-1.el7.noarch.rpm python-linstor-0.9.8-1.noarch.rpm
 	rpm -ivh linstor-client-0.9.8-1.noarch.rpm
-	cd ..
-	cp ../linstor-client.conf /etc/linstor/
+	cp linstor-client.conf /etc/linstor/
 	cd ../nodes/others
 	#~ systemctl enable --now linstor-satellite
 }
