@@ -43,6 +43,7 @@ The cluster stonith it is set up using low end IoT devices with Espurna firmware
 
 Many tests have to be done to have it in production. We will try to update here the progress. 
 
+- 2019-07-29: The install script allows to set up a master, replica and diskless node and the master node incorporates automatically other diskless nodes to the cluster. Now doing tests removing and adding replica nodes to the cluster.
 - 2019-07-14: We now have the test lab configured with all the hardware and all the drbd packages compiled and running. Now we will work in programming a new fence agent that works with Teckin sp22 IoT devices with Espurna firmware, as this will lower the final budget a lot. Also we are working in testing intel gVT and AMD sriov gpu virtualization.
 
 ### TASK LIST
@@ -56,12 +57,12 @@ Many tests have to be done to have it in production. We will try to update here 
 - Performance tuning in drbd9
 - Test stonith with Teckin sp22 though espurna api [DONE]
 - Program fence-espurna for pacemaker [WIP]
-- Configure & test pacemaker
-- Test removing and adding again a replica node
+- Configure & test pacemaker [DONE]
+- Test removing and adding again a replica node [WIP]
 - Fix mosquitto container and grafana to monitor nodes power consumption [WIP]
 - Test intel gVT on i9-9900K [WIP]
 - Add virtual GPU mapping to IsardVDI software
 - Test hangs in AMD Firepro 7550 with sr-iov [WIP]
-- Create ansibles for all the types of nodes
+- Create ansibles for all the types of nodes [DISCARDED]
 - Final tests & production
 
