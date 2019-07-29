@@ -1,10 +1,11 @@
-rm -rf /mnt/bootisoks
-umount /mnt/iso
-mkdir /mnt/iso
-mount -o loop /mnt/CentOS-7-x86_64-Minimal-1810.iso  /mnt/iso
-mkdir /mnt/bootisoks
-cp -r /mnt/iso/* /mnt/bootisoks/
-umount /mnt/iso
+rm -rf ./bootisoks
+umount ./iso
+mkdir ./iso
+wget http://ftp.uma.es/mirror/CentOS/7.6.1810/isos/x86_64/CentOS-7-x86_64-Minimal-1810.iso
+mount -o loop ./CentOS-7-x86_64-Minimal-1810.iso  ./iso
+mkdir ./bootisoks
+cp -r ./iso/* ./bootisoks/
+umount ./iso
 
 #rm -rf /mnt/bootisoks/Packages/*
 #cp /mnt/packages/* /mnt/bootisoks/Packages
@@ -19,14 +20,11 @@ umount /mnt/iso
 #cp /mnt/comps.xml /mnt/bootisoks/repodata
 #createrepo -g /mnt/comps.xml -u file:///run/install/repo/Packages/ -dpo .. .
 
-cd /mnt
-cp ks.cfg /mnt/bootisoks/isolinux/
-chmod -R u+w /mnt/bootisoks
-cd /mnt/bootisoks/isolinux/
-#~ nano ks.cfg
-cd /mnt/bootisoks
-sed -i 's/append\ initrd\=initrd.img/append initrd=initrd.img\ ks\=cdrom:\/ks.cfg/' /mnt/bootisoks/isolinux/isolinux.cfg
-mkisofs -untranslated-filenames -o /mnt/boot.iso -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -V "CentOS 7 x86_64" -U -r -R -J -T -v isolinux/. .
-isohybrid /mnt/boot.iso
-implantisomd5 /mnt/boot.iso
-#~ ls (boot.iso)
+cp ks.cfg ./bootisoks/isolinux/
+chmod -R u+w ./bootisoks
+cd ./bootisoks
+sed -i 's/append\ initrd\=initrd.img/append initrd=initrd.img\ ks\=cdrom:\/ks.cfg/' ./isolinux/isolinux.cfg
+mkisofs -untranslated-filenames -o ../isard-flock.iso -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -V "CentOS 7 x86_64" -U -r -R -J -T -v isolinux/. .
+cd ..
+isohybrid isard-flock.iso
+implantisomd5 isard-flock.iso
