@@ -382,6 +382,7 @@ if [[ $master_node == -1 ]]; then
 	fi
 fi
 
+remove_all_if
 get_ifs
 
 # STORAGE

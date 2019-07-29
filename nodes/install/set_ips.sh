@@ -28,5 +28,5 @@ set_if(){
 host=$1
 echo "if$host" > /etc/hostname
 sysctl -w kernel.hostname=if$host
-#~ remove_10g_ifs
+#remove_10g_ifs
 update_ifs
