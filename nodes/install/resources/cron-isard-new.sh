@@ -18,16 +18,16 @@ fi
 #~ scp -r /root/isard-flock isard-new:/root/
 
 # Set new host IP
-ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/others/set_ip.sh $host> /dev/null 2>&1 &'"
+ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ip.sh $host> /dev/null 2>&1 &'"
 while nc -z "if$host" 22 2>/dev/null; do
   sleep 1
 done
 
-while ! ping -c 1 172.31.1.1$host &> /dev/null
-do
-	sleep 2
-done
-sleep 5
+#~ while ! ping -c 1 172.31.1.1$host &> /dev/null
+#~ do
+	#~ sleep 2
+#~ done
+#~ sleep 5
 
 # Check type of node
 ssh if$host -- lsblk | grep md
@@ -45,11 +45,15 @@ BACKUP=$?
 # Lauch new node setup
 
 if [[ $DRBD -eq 0 ]]; then
+	echo "drbd"
+	exit 1
 	linstor node add if$host 172.31.1.1$host
 	linstor ... auto-place linstordb
 	linstor ... auto-place isard
 fi
 if [[ $PCSD -eq 0 ]]; then
+	echo "pcsd"
+	exit 1
 	pcs cluster auth if$host <<EOF
 hacluster
 isard-flock
@@ -58,6 +62,8 @@ EOF
 	pcs cluster start if$host
 fi
 if [[ $RAID -eq 0 ]]; then
+	echo raid
+	exit 1
 	pcs constraint modify prefer_node_storage add if$host
 	# or play with node weights
 	
