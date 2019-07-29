@@ -17,17 +17,11 @@ fi
 # Copy isard-flock version to new node
 #~ scp -r /root/isard-flock isard-new:/root/
 
-# Set new host IP
-ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ip.sh $host> /dev/null 2>&1 &'"
-while nc -z "if$host" 22 2>/dev/null; do
-  sleep 1
+while ! ping -c 1 172.31.1.1$host &> /dev/null
+do
+	sleep 2
 done
-
-#~ while ! ping -c 1 172.31.1.1$host &> /dev/null
-#~ do
-	#~ sleep 2
-#~ done
-#~ sleep 5
+sleep 5
 
 # Check type of node
 ssh if$host -- lsblk | grep md

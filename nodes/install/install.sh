@@ -224,6 +224,7 @@ set_pacemaker(){
 	systemctl enable pcsd
 	systemctl enable corosync
 	systemctl enable pacemaker
+	usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
 	systemctl start pcsd
 }
 
@@ -294,7 +295,7 @@ set_master_node(){
 	
 	### PACEMAKER
 	# Add host & start cluster
-	usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
+	#~ usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
 	pcs cluster auth if$host <<EOF
 hacluster
 isard-flock
