@@ -14,6 +14,8 @@ fi
 # Copy actual keys to new node
 /usr/bin/rsync -ratlz --rsh="/usr/bin/sshpass -p isard-flock ssh -o StrictHostKeyChecking=no -l root" /root/.ssh/*  isard-new:/root/.ssh/
 
+# Set new host IP's
+ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ips.sh $host &'"
 # Copy isard-flock version to new node
 #~ scp -r /root/isard-flock isard-new:/root/
 
@@ -40,14 +42,13 @@ BACKUP=$?
 
 if [[ $DRBD -eq 0 ]]; then
 	echo "drbd"
-	exit 1
+	#~ exit 1
 	linstor node add if$host 172.31.1.1$host
-	linstor ... auto-place linstordb
-	linstor ... auto-place isard
-fi
+	linstor resource create linstordb --auto-place $host --storage-pool data
+	linstor resource create isard --auto-place $host --storage-pool data
 if [[ $PCSD -eq 0 ]]; then
 	echo "pcsd"
-	exit 1
+	#~ exit 1
 	pcs cluster auth if$host <<EOF
 hacluster
 isard-flock

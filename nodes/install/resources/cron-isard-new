@@ -1,2 +1,2 @@
-0/1 * * * * root bash -c "/root/cron-isard-new.sh"
+0/1 * * * * root bash -c "/root/isard-flock/nodes/install/resources/cron-isard-new.sh"
 
