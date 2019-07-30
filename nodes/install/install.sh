@@ -260,9 +260,11 @@ set_master_node(){
 	echo "if$host" > /etc/hostname
 	sysctl -w kernel.hostname=if$host
 
-	ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
-	cp ~/.ssh/id_dsa.pub ~/.ssh/authorized_keys
-
+	if [[ ! -f ~/.ssh/id_dsa  ]]; then
+		ssh-keygen -t dsa -f ~/.ssh/id_dsa -N ""
+		cp ~/.ssh/id_dsa.pub ~/.ssh/authorized_keys
+	fi
+	
 	### DRBD
 	# Enable services
 	systemctl enable --now linstor-controller

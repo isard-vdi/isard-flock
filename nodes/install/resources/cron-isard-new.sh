@@ -1,5 +1,9 @@
 #!/bin/bash
 # Should be added to cron and will detect and incorporate new nodes
+
+# check that cluster is running
+
+# check if new node appears in system or exit
 if ping -c 1 isard-new &> /dev/null
 then
   echo "Found new isard. Get new host number..."
@@ -11,6 +15,8 @@ else
   exit 0
 fi
 
+# remove keys if known already
+sed -i '/^isard-new/ d' /root/.ssh/known_hosts
 # Copy actual keys to new node
 /usr/bin/rsync -ratlz --rsh="/usr/bin/sshpass -p isard-flock ssh -o StrictHostKeyChecking=no -l root" /root/.ssh/*  isard-new:/root/.ssh/
 
@@ -24,6 +30,9 @@ do
 	sleep 2
 done
 sleep 5
+
+sed -i '/^isard-new/ d' /root/.ssh/known_hosts
+/usr/bin/rsync -ratlz --rsh="/usr/bin/sshpass -p isard-flock ssh -o StrictHostKeyChecking=no -l root" /root/.ssh/*  if$host:/root/.ssh/
 
 # Check type of node
 ssh if$host -- lsblk | grep md
