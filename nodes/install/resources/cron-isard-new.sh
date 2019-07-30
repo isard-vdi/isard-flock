@@ -51,7 +51,7 @@ echo "pcsd: $PCSD"
 
 # Lauch new node setup
 
-if [[ $DRBD -eq 0 ]]; then
+if [[ "$DRBD" == "0" ]]; then
 	echo "Setting drbd"
 	ssh if$host -- systemctl enable --now linstor-satellite
 	sleep 5
@@ -60,7 +60,7 @@ if [[ $DRBD -eq 0 ]]; then
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	
 
-if [[ $PCSD -eq 0 ]]; then
+if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
 	#~ exit 1
 	pcs cluster auth if$host <<EOF

@@ -354,15 +354,19 @@ EOF
 	pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
 
 	# Group and constraints
-	pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
-	pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
+	#~ pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
+	#~ pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
 
+	pcs resource group add server isard_fs nfs-daemon nfs-root isard_data isard-ip
+	pcs constraint order set linstor server
+	
 	## NFS client nodes configuration (should avoid isard nfs server colocation)
 	pcs resource create nfs-client Filesystem \
 			device=isard-nas:/isard directory="/opt/isard" \
 			fstype="nfs" "options=defaults,noatime" op monitor interval=10s
 	pcs resource clone nfs-client clone-max=8 clone-node-max=8 notify=true
-	pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
+	#~ pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
+	pcs constraint colocation add nfs-client-clone with server -INFINITY
 		
 	### This cron will monitor for new nodes (isard-new) and lauch auto config
 	cp ./resources/cron-isard-new.sh /root
