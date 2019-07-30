@@ -187,7 +187,7 @@ set_storage_dialog(){
 			i=$((i+1))
 		done
 		opt=$(dialog --menu --stdout "Select storage device:" 0 0 0 $var )
-		pv_device=${devs[$(($opt-1))]}
+		pv_device="/dev/${devs[$(($opt-1))]}"
 		create_drbdpool
 	fi
 	if [[ ${#devs[@]} -eq 3 ]]; then
