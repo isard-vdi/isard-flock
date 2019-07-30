@@ -229,6 +229,7 @@ set_pacemaker(){
 }
 
 set_docker(){
+  if ! yum list installed docker-ce >/dev/null 2>&1 || [[ ! -f /usr/local/bin/docker-compose ]]; then
 	sudo yum remove docker \
 					  docker-client \
 					  docker-client-latest \
@@ -247,7 +248,9 @@ set_docker(){
 
 	sudo curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 	chmod +x /usr/local/bin/docker-compose
-		
+  else
+    echo "docker & docker-compose already installed"
+  fi
 }
 
 

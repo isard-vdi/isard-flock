@@ -1,7 +1,9 @@
 rm -rf ./bootisoks
 umount ./iso
 mkdir ./iso
-wget http://ftp.uma.es/mirror/CentOS/7.6.1810/isos/x86_64/CentOS-7-x86_64-Minimal-1810.iso
+if [[ ! -f CentOS-7-x86_64-Minimal-1810.iso ]]; then
+	wget http://ftp.uma.es/mirror/CentOS/7.6.1810/isos/x86_64/CentOS-7-x86_64-Minimal-1810.iso
+fi
 mount -o loop ./CentOS-7-x86_64-Minimal-1810.iso  ./iso
 mkdir ./bootisoks
 cp -r ./iso/* ./bootisoks/
