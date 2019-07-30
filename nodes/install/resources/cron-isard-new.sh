@@ -46,15 +46,20 @@ VGTD=$?
 ssh if$host -- vgs | grep backup
 BACKUP=$?
 
+echo "drbd: $DRBD"
+echo "pcsd: $PCSD"
 
 # Lauch new node setup
 
 if [[ $DRBD -eq 0 ]]; then
-	echo "drbd"
-	#~ exit 1
-	linstor node add if$host 172.31.1.1$host
-	linstor resource create linstordb --auto-place $host --storage-pool data
-	linstor resource create isard --auto-place $host --storage-pool data
+	echo "Setting drbd"
+	ssh if$host -- systemctl enable --now linstor-satellite
+	sleep 5
+	linstor node create if$host 172.31.1.1$host
+	linstor storage-pool create lvm if$host data drbdpool
+	linstor resource create --storage-pool data if$host isard	
+	linstor resource create --storage-pool data if$host linstordb	
+
 if [[ $PCSD -eq 0 ]]; then
 	echo "pcsd"
 	#~ exit 1
@@ -66,9 +71,9 @@ EOF
 	pcs cluster start if$host
 fi
 if [[ $RAID -eq 0 ]]; then
-	echo raid
+	echo "raid"
 	exit 1
-	pcs constraint modify prefer_node_storage add if$host
+	#~ pcs constraint modify prefer_node_storage add if$host
 	# or play with node weights
 	
 	# wait for /opt/isard to be mounted (drbd or nfs)
