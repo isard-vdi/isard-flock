@@ -179,10 +179,15 @@ set_storage_dialog(){
 
 	if [[ ${#devs[@]} -eq 2 ]]; then
 		# NO RAID
-		cmd=(dialog --menu --stdout "Select storage device:" 0 0 0 )
-		options=($var)
-		choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
-		pv_device="dev/${devs[0]}"
+		var=""
+		i=1
+		for dev in ${devs[@]}
+		do
+			var="$var $i $dev "
+			i=$((i+1))
+		done
+		opt=$(dialog --menu --stdout "Select storage device:" 0 0 0 $var )
+		pv_device=${devs[$(($opt-1))]}
 		create_drbdpool
 	fi
 	if [[ ${#devs[@]} -eq 3 ]]; then
@@ -370,11 +375,14 @@ EOF
 	pcs resource clone nfs-client clone-max=8 clone-node-max=8 notify=true
 	#~ pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
 	pcs constraint colocation add nfs-client-clone with server -INFINITY
+
+	### TODO: Resource stickiness (cluster wide?)
 		
 	### This cron will monitor for new nodes (isard-new) and lauch auto config
 	cp ./resources/cron-isard-new.sh /root
 	chmod a+x /root/cron-isard-new.sh
 	cp ./resources/cron-isard-new /etc/cron.d/	
+
 }
 
 ##########################

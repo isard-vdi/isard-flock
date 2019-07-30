@@ -70,7 +70,6 @@ if [[ "$DRBD" == "0" ]]; then
 fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
-	#~ exit 1
 	pcs cluster auth if$host <<EOF
 hacluster
 isard-flock
