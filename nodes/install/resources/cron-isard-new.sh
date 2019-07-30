@@ -20,6 +20,14 @@ sed -i '/^isard-new/ d' /root/.ssh/known_hosts
 # Copy actual keys to new node
 /usr/bin/rsync -ratlz --rsh="/usr/bin/sshpass -p isard-flock ssh -o StrictHostKeyChecking=no -l root" /root/.ssh/*  isard-new:/root/.ssh/
 
+# Wait for node to finish if it is just installing isard-flock
+while ssh isard-new -- ls -lisa / | grep .installing
+do
+	sleep 5
+	echo "Remote host is still installing isard-flock. Waiting..."
+done
+
+
 # Set new host IP's
 ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ips.sh $host &'"
 # Copy isard-flock version to new node
@@ -59,7 +67,7 @@ if [[ "$DRBD" == "0" ]]; then
 	linstor storage-pool create lvm if$host data drbdpool
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	
-
+fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
 	#~ exit 1
@@ -71,8 +79,8 @@ EOF
 	pcs cluster start if$host
 fi
 if [[ $RAID -eq 0 ]]; then
-	echo "raid"
-	exit 1
+	#~ echo "raid"
+	exit 0
 	#~ pcs constraint modify prefer_node_storage add if$host
 	# or play with node weights
 	

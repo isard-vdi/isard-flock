@@ -6,6 +6,8 @@
 #~ 2. REPLICA (DRBD+PACEMAKER+NAS+DOCKER)
 #~ 3. DISKLESS (PACEMAKER+NFS)
 
+touch /.installing
+
 # Defaults (If set will bypass tui selection menu)
 if_viewers='' 	#'eth0'
 if_internet='' 	#'eth1'
@@ -220,7 +222,8 @@ set_storage(){
 }
 
 set_pacemaker(){
-	yum install -y corosync pacemaker pcs python-pycurl fence-agents-apc fence-agents-apc-snmp
+	yum install -y corosync pacemaker pcs python-pycurl 
+	#fence-agents-apc fence-agents-apc-snmp
 	systemctl enable pcsd
 	systemctl enable corosync
 	systemctl enable pacemaker
@@ -434,10 +437,7 @@ if [[ ${#devs[@]} -eq 1 ]]; then
 	set_pacemaker
 fi
 
-
-
-
-
+rm /.installing
 
 
 
