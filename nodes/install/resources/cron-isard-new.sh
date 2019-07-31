@@ -70,12 +70,12 @@ if [[ "$DRBD" == "0" ]]; then
 fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
-	pcs cluster auth if$host <<EOF
+	/sbin/pcs cluster auth if$host <<EOF
 hacluster
 isard-flock
 EOF
-	pcs cluster node add if$host
-	pcs cluster start if$host
+	/sbin/pcs cluster node add if$host
+	/sbin/pcs cluster start if$host
 fi
 if [[ $RAID -eq 0 ]]; then
 	#~ echo "raid"
