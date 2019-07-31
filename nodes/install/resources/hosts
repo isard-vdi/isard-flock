@@ -1,14 +1,14 @@
 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 
-172.31.1.11 if1
-172.31.1.12 if2
-172.31.1.13 if3
-172.31.1.14 if4
-172.31.1.15 if5
-172.31.1.16 if6
-172.31.1.17 if7
-172.31.1.18 if8
+172.31.0.11 if1
+172.31.0.12 if2
+172.31.0.13 if3
+172.31.0.14 if4
+172.31.0.15 if5
+172.31.0.16 if6
+172.31.0.17 if7
+172.31.0.18 if8
 
 172.31.0.1 isard-nas
 172.31.0.254 isard-new

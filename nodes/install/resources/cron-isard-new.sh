@@ -33,7 +33,7 @@ ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ips.sh $
 # Copy isard-flock version to new node
 #~ scp -r /root/isard-flock isard-new:/root/
 
-while ! ping -c 1 172.31.1.1$host &> /dev/null
+while ! ping -c 1 172.31.0.1$host &> /dev/null
 do
 	sleep 2
 done
@@ -63,7 +63,7 @@ if [[ "$DRBD" == "0" ]]; then
 	echo "Setting drbd"
 	ssh if$host -- systemctl enable --now linstor-satellite
 	sleep 5
-	linstor node create if$host 172.31.1.1$host
+	linstor node create if$host 172.31.0.1$host
 	linstor storage-pool create lvm if$host data drbdpool
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	

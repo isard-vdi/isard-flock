@@ -282,7 +282,7 @@ set_master_node(){
 	sleep 5
 	
 	# Create node & resources
-	linstor node create if$host 172.31.1.1$host
+	linstor node create if$host 172.31.0.1$host
 	linstor storage-pool create lvm if$host data drbdpool
 	linstor resource-definition create isard
 	linstor volume-definition create isard 470M
