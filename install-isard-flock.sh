@@ -380,6 +380,7 @@ EOF
 	### TODO: Resource stickiness (cluster wide?)
 		
 	### This cron will monitor for new nodes (isard-new) and lauch auto config
+	cp ./resources/scripts/update_interfaces.sh /usr/local/bin/
 	cp ./resources/config/cron-isard-new.sh /usr/local/bin/
 	chmod a+x /usr/local/bin/cron-isard-new.sh
 	cp ./resources/config/cron-isard-new /etc/cron.d/	
