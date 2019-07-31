@@ -1,2 +1,0 @@
-*/1 * * * * root /root/isard-flock/nodes/install/resources/cron-isard-new.sh >> /root/new-node.log 2>&1
-

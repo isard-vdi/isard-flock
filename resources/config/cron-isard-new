@@ -1,0 +1,2 @@
+*/1 * * * * root /usr/local/bin/cron-isard-new.sh >> /var/log/isard-flock/cron-isard-new.log 2>&1
+

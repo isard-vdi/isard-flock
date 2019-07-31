@@ -29,7 +29,7 @@ done
 
 
 # Set new host IP's
-ssh -n -f isard-new "bash -c 'nohup /root/isard-flock/nodes/install/set_ips.sh $host &'"
+ssh -n -f isard-new "bash -c 'nohup /usr/local/bin/update_interfaces.sh $host &'"
 # Copy isard-flock version to new node
 #~ scp -r /root/isard-flock isard-new:/root/
 
@@ -67,6 +67,11 @@ if [[ "$DRBD" == "0" ]]; then
 	linstor storage-pool create lvm if$host data drbdpool
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	
+else
+	# constraint to avoid node
+	pcs constraint location linstordb-drbd-clone avoids if$host
+	pcs constraint location linstor avoids if$host
+	pcs constraint location server avoids if$host
 fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
@@ -76,6 +81,7 @@ isard-flock
 EOF
 	/sbin/pcs cluster node add if$host
 	/sbin/pcs cluster start if$host
+	/sbin/pcs cluster enable if$host
 fi
 if [[ $RAID -eq 0 ]]; then
 	#~ echo "raid"

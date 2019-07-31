@@ -29,6 +29,7 @@ install_base_pkg(){
 	yum install -y https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
 	yum install -y nano git sshpass rsync nc dialog
 	systemctl enable --now chronyd
+	cp ./resources/scripts/update_interfaces.sh /usr/local/bin/
 }
 
 remove_all_if(){
@@ -153,14 +154,14 @@ create_drbdpool(){
 	yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
 	pvcreate $pv_device
 	vgcreate drbdpool $pv_device
-	rpm -ivh ./resources/python-linstor-0.9.8-1.noarch.rpm \
-		./resources/linstor-common-0.9.12-1.el7.noarch.rpm  \
-		./resources/linstor-controller-0.9.12-1.el7.noarch.rpm  \
-		./resources/linstor-satellite-0.9.12-1.el7.noarch.rpm \
-		./resources/linstor-client-0.9.8-1.noarch.rpm
-	cp ./resources/linstor-satellite.service /usr/lib/systemd/system
-	cp ./resources/linstor-controller.service /usr/lib/systemd/system
-	cp ./resources/linstor-client.conf /etc/linstor/
+	rpm -ivh ./resources/linstor/python-linstor-0.9.8-1.noarch.rpm \
+		./resources/linstor/linstor-common-0.9.12-1.el7.noarch.rpm  \
+		./resources/linstor/linstor-controller-0.9.12-1.el7.noarch.rpm  \
+		./resources/linstor/linstor-satellite-0.9.12-1.el7.noarch.rpm \
+		./resources/linstor/linstor-client-0.9.8-1.noarch.rpm
+	cp ./resources/linstor/linstor-satellite.service /usr/lib/systemd/system
+	cp ./resources/linstor/linstor-controller.service /usr/lib/systemd/system
+	cp ./resources/linstor/linstor-client.conf /etc/linstor/
 	#~ systemctl enable --now linstor-satellite (it is done when setting it up)
 }
 
@@ -379,15 +380,19 @@ EOF
 	### TODO: Resource stickiness (cluster wide?)
 		
 	### This cron will monitor for new nodes (isard-new) and lauch auto config
-	cp ./resources/cron-isard-new.sh /root
-	chmod a+x /root/cron-isard-new.sh
-	cp ./resources/cron-isard-new /etc/cron.d/	
+	cp ./resources/config/cron-isard-new.sh /usr/local/bin/
+	chmod a+x /usr/local/bin/cron-isard-new.sh
+	cp ./resources/config/cron-isard-new /etc/cron.d/	
 
 }
 
+install_master_isard(){
+	git clone
+}
 ##########################
 
-scp ./resources/hosts /etc/hosts
+mkdir /var/log/isard-flock
+scp ./resources/config/hosts /etc/hosts
 install_base_pkg
 
 if [[ $master_node == -1 ]]; then
@@ -420,6 +425,7 @@ if [[ ${#devs[@]} -gt 2 ]]; then
 	set_docker
 	if [[ $master_node == 1 ]]; then
 		set_master_node
+		install_master_isard
 	fi
 fi
 if [[ ${#devs[@]} -eq 2 ]]; then
