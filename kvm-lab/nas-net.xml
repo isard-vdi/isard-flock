@@ -1,0 +1,8 @@
+<network>
+  <name>nas</name>
+  <uuid>ee15e761-de7e-41e7-ab71-826bd3998fad</uuid>
+  <bridge name='virbr1' stp='off' delay='0'/>
+  <domain name='nas'/>
+  <mtu size="9216"/>
+</network>
+

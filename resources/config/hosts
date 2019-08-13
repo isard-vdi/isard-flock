@@ -12,3 +12,13 @@
 
 172.31.0.1 isard-nas
 172.31.0.254 isard-new
+
+172.31.0.100 stonith-ipaddr
+172.31.0.101 stonith-if1
+172.31.0.102 stonith-if2
+172.31.0.103 stonith-if3
+172.31.0.104 stonith-if4
+172.31.0.105 stonith-if5
+172.31.0.106 stonith-if6
+172.31.0.107 stonith-if7
+172.31.0.108 stonith-if8

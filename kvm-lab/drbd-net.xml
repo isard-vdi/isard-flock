@@ -1,0 +1,8 @@
+<network connections='2'>
+  <name>drbd</name>
+  <uuid>df100893-dfdc-458c-a610-e7382f150bd0</uuid>
+  <bridge name='virbr2' stp='off' delay='0'/>
+  <domain name='drbd'/>
+  <mtu size="9216"/>
+</network>
+

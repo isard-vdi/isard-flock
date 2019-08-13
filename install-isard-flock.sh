@@ -94,6 +94,7 @@ set_viewers_if(){
 	else
 		old_if=$if_viewers
 		new_if="viewers"
+		set_if
 	fi
 }
 
@@ -108,6 +109,7 @@ set_nas_if(){
 	else
 		old_if=$if_nas
 		new_if="nas"
+		set_if
 	fi		
 }
 
@@ -122,6 +124,7 @@ set_drbd_if(){
 	else
 		old_if=$if_drbd
 		new_if="drbd"
+		set_if
 	fi
 }
 
@@ -136,6 +139,7 @@ set_internet_if(){
 	else
 		old_if=$if_internet
 		new_if="internet"
+		set_if
 	fi
 }
 
@@ -230,6 +234,8 @@ set_storage(){
 set_pacemaker(){
 	yum install -y corosync pacemaker pcs python-pycurl 
 	#fence-agents-apc fence-agents-apc-snmp
+	cp resources/pcs/fence_espurna /usr/sbin/
+	chmod 755 /usr/sbin/fence_espurna
 	systemctl enable pcsd
 	systemctl enable corosync
 	systemctl enable pacemaker
@@ -319,8 +325,11 @@ EOF
 	pcs cluster start if$host
 
 	# Stonith 
-	#pcs stonith create stonith-rsa-if1 fence_rsa action=off ipaddr="if1" login=root pcmk_host_list=if1 secure=true
-	pcs property set stonith-enabled=false
+	if [[ $espurna_fencing == 1 ]]; then
+		pcs stonith create stonith fence_espurna ipaddr="stonith-ipaddr" apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 inet4only
+	else
+		pcs property set stonith-enabled=false
+	fi
 	
 	# Linstordb Master/Slave & linstor controller
 	pcs resource create linstordb-drbd ocf:linbit:drbd drbd_resource=linstordb op monitor interval=15s role=Master op monitor interval=30s role=Slave
@@ -396,6 +405,9 @@ mkdir /var/log/isard-flock
 scp ./resources/config/hosts /etc/hosts
 install_base_pkg
 
+espurna_fencing=0
+espurna_apikey=""
+
 if [[ $master_node == -1 ]]; then
 	dialog --title "Maste node" \
 	--backtitle "Is this the first (master) node?" \
@@ -403,6 +415,16 @@ if [[ $master_node == -1 ]]; then
 	if [[ $? == 0 ]] ; then
 		master_node=1
 		host=1
+		dialog --title "Fencing with espurna IoT" \
+		--backtitle "Are you using espurna flashed IoT fencing device?" \
+		--yesno "Set up espurna IoT fencing apikey?" 7 60
+		if [[ $? == 0 ]] ; then
+			dialog --inputbox "Enter your espurna device apikey:" 8 40
+			if [[ $? != "" ]] ; then
+				espurna_fencing=1
+				espurna_apikey=$?
+			fi 
+		fi
 	else
 		master_node=0
 		host=254 # Isard new
