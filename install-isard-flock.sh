@@ -9,16 +9,40 @@
 touch /.installing
 
 # Defaults (If set will bypass tui selection menu)
-if_viewers='' 	#'eth0'
-if_internet='' 	#'eth1'
-if_drbd='' 		#'eth2'
-if_nas='' 		#'eth3'
+# Set 'none' to bypass interface configuration and dialog
+if_viewers='' 		#'eth0'
+if_internet='none' 	#
+if_nas='' 			#'eth2'
+if_drbd='' 			#'eth3'
 
 raid_level=-1 	#1
 raid_devices=() #(/dev/vdb /dev/vdc)
 pv_device='' 	#"/dev/md0"
 
 master_node=-1  # 1 yes, 0 no
+
+espurna_fencing=0 # 0 no, 1 yes
+espurna_apikey="" # Set up the espurna_apikey from your IoT plug device.
+
+### Command line args
+while true; do
+  case "$1" in
+    --if_viewers ) 	if_viewers=$2; shift 2;;
+    --if_internet ) if_internet=$2; shift 2;;
+    --if_nas ) 		if_nas=$2; shift 2;;
+    --if_drbd ) 	if_drbd=$2; shift 2;;
+    
+    --raid_level )  raid_level=$2; shift 2;;
+    --raid_devices ) IFS=',' read -r -a raid_devices  <<< "$2"; shift 2;;
+    --pv_device )  	pv_device=$2; shift 2;;
+    
+    --master )  	master_node=$2; shift 2;;
+    --espurna_apikey )  espurna_apikey=$2; espurna_fencing=1; shift 2;;
+    -- ) shift; break ;;
+    * ) break ;;
+  esac
+done
+### End command line args
 
 ## FUNCTIONS
 install_base_pkg(){
@@ -84,6 +108,9 @@ set_if(){
 }
 
 set_viewers_if(){
+	if [[ $if_viewers == 'none' ]]; then
+		return
+	fi
 	if [[ $if_viewers == '' ]] ; then
 		opt=$(dialog --menu --stdout "Select interface for guests VIEWERS:" 0 0 0 $var )
 		if ! [[ $opt -gt ${#interfaces[@]} ]]; then
@@ -99,6 +126,9 @@ set_viewers_if(){
 }
 
 set_nas_if(){
+	if [[ $if_nas == 'none' ]]; then
+		return
+	fi
 	if [[ $if_nas == '' ]] ; then
 	opt=$(dialog --menu --stdout "Select interface for NAS:" 0 0 0 $var )
 		if ! [[ $opt -gt ${#interfaces[@]} ]]; then
@@ -114,6 +144,9 @@ set_nas_if(){
 }
 
 set_drbd_if(){
+	if [[ $if_drbd == 'none' ]]; then
+		return
+	fi
 	if [[ $if_drbd == '' ]] ; then
 		opt=$(dialog --menu --stdout "Select interface for DRBD:" 0 0 0 $var )
 		if ! [[ $opt -gt ${#interfaces[@]} ]]; then
@@ -129,6 +162,9 @@ set_drbd_if(){
 }
 
 set_internet_if(){
+	if [[ $if_internet == 'none' ]]; then
+		return
+	fi
 	if [[ $if_internet == '' ]] ; then
 		opt=$(dialog --menu --stdout "Select interface for guests INTERNET:" 0 0 0 $var )
 		if ! [[ $opt -gt ${#interfaces[@]} ]]; then
@@ -405,16 +441,12 @@ mkdir /var/log/isard-flock
 scp ./resources/config/hosts /etc/hosts
 install_base_pkg
 
-espurna_fencing=0
-espurna_apikey=""
-
 if [[ $master_node == -1 ]]; then
-	dialog --title "Maste node" \
+	dialog --title "Master node" \
 	--backtitle "Is this the first (master) node?" \
 	--yesno "Set up as MASTER node?" 7 60
 	if [[ $? == 0 ]] ; then
 		master_node=1
-		host=1
 		dialog --title "Fencing with espurna IoT" \
 		--backtitle "Are you using espurna flashed IoT fencing device?" \
 		--yesno "Set up espurna IoT fencing apikey?" 7 60
@@ -427,8 +459,14 @@ if [[ $master_node == -1 ]]; then
 		fi
 	else
 		master_node=0
-		host=254 # Isard new
 	fi
+fi
+
+if [[ $master_node == 0 ]]; then
+	host=254 # Isard_new
+fi
+if [[ $master_node == 1 ]]; then
+	host=1
 fi
 
 remove_all_if
@@ -475,7 +513,9 @@ if [[ ${#devs[@]} -eq 1 ]]; then
 fi
 
 rm /.installing
-
+if [[ $0 == "auto-install.sh" ]]; then
+	rm $0
+fi
 
 
 

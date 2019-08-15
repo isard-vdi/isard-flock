@@ -1,0 +1,10 @@
+   [Unit]
+    Description=Espurna stonith API to virsh
+    After=firewalld.service
+
+    [Service]
+    ExecStart=/usr/bin/bash -c 'python3 /opt/isard-flock/kvm-lab/espurna_virsh_emulator.py 1>/tmp/espurna_virsh_emulator.log 2>/tmp/espurna_virsh_emulator-error.log'
+    Type=simple
+
+    [Install]
+    WantedBy=multi-user.target

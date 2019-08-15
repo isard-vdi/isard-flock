@@ -1,0 +1,10 @@
+   [Unit]
+    Description=Espurna stonith API to virsh
+    After=firewalld.service
+
+    [Service]
+    ExecStart=/usr/bin/bash -c '/opt/auto-install.sh 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'
+    Type=simple
+
+    [Install]
+    WantedBy=multi-user.target

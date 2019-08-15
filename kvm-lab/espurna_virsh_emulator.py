@@ -7,7 +7,6 @@ import libvirt
 app = Flask(__name__)
 
 ## Adapt to your simulation system
-VM = ["master","master2","replica","dl"]
 apikey ="0123456789ABCDEF"
 kvm_host_ip="192.168.122.1"
 
@@ -27,13 +26,13 @@ def entry_point():
     if value is not None:
         if value == "1": 
             conn = libvirt.open("qemu+ssh://root@"+kvm_host_ip+"/system")
-            dom = conn.lookupByName(VM[host-1])
+            dom = conn.lookupByName("if"+str(host))
             if not dom.isActive(): dom.create()
             conn.close()
             return jsonify({"relay/0":1}), 200
         if value == "0": 
             conn = libvirt.open("qemu+ssh://root@"+kvm_host_ip+"/system")
-            dom = conn.lookupByName(VM[host-1])
+            dom = conn.lookupByName("if"+str(host))
             if dom.isActive(): dom.destroy()
             conn.close()
             return jsonify({"relay/0":0}), 200
@@ -41,7 +40,7 @@ def entry_point():
     
     # ~ status=virsh list | grep VM[host-1]
     conn = libvirt.open("qemu+ssh://root@"+kvm_host_ip+"/system")
-    dom = conn.lookupByName(VM[host-1])
+    dom = conn.lookupByName("if"+str(host))
     if dom.isActive(): 
         conn.close()
         return jsonify({"relay/0":1}), 200
