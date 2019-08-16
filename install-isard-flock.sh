@@ -192,8 +192,10 @@ create_raid(){
 create_drbdpool(){
 	yum install -y lvm2
 	yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
+	echo "Creating drbdpool on $pv_device ..."
 	pvcreate $pv_device
 	vgcreate drbdpool $pv_device
+	echo "drbdppool created..."
 	rpm -ivh ./resources/linstor/python-linstor-0.9.8-1.noarch.rpm \
 		./resources/linstor/linstor-common-0.9.12-1.el7.noarch.rpm  \
 		./resources/linstor/linstor-controller-0.9.12-1.el7.noarch.rpm  \
@@ -264,11 +266,12 @@ set_storage(){
 		set_storage_dialog	
 	else
 		create_raid
+		create_drbdpool
 	fi	
 }
 
 set_pacemaker(){
-	yum install -y corosync pacemaker pcs python-pycurl 
+	yum install -y corosync pacemaker pcs python-pycurl python-requests
 	#fence-agents-apc fence-agents-apc-snmp
 	cp resources/pcs/fence_espurna /usr/sbin/
 	chmod 755 /usr/sbin/fence_espurna
@@ -513,13 +516,6 @@ if [[ ${#devs[@]} -eq 1 ]]; then
 fi
 
 rm /.installing
-if [[ $0 == "auto-install.sh" ]]; then
-	rm $0
-fi
-
-
-
-
-
-
-
+#~ if [[ $0 == "auto-install.sh" ]]; then
+	#~ rm $0
+#~ fi

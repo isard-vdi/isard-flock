@@ -34,12 +34,12 @@ virt-install --name=stonith \
 --network network=default \
 --network network=nas \
 --os-type=linux \
---os-variant=centos7.0	
+--os-variant=centos7.0
 
 virsh destroy stonith
 virt-copy-in -d stonith ../../isard-flock /opt/
 virt-copy-in -d stonith ./espurna_virsh_emulator.service /etc/systemd/system/multi-user.target.wants/
-				
+
 for ((i=1; i<=$1; i++)); do
 	virsh destroy if$i
 	virsh undefine if$i
@@ -62,9 +62,11 @@ for ((i=1; i<=$1; i++)); do
 		--os-variant=centos7.0
 		virsh destroy if$i
 		virt-copy-in -d if$i ../../isard-flock /opt/
-		sed "s/ExecStart=.*/ExecStart=/usr/bin/bash -c '/opt/auto-install.sh --master 1 --if_viewers eth0 --if_nas eth1 --if_drbd eth2 --raid_level 1 --raid_devices /dev/vdb,/dev/vdc --pv_device /dev/md0 --espurna_fencing 1 --espurna_apikey 0123456789ABCDEF 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'" auto-install.service
+		command="ExecStart=/opt/auto-install.sh --master 1 --if_viewers eth0 --if_nas eth1 --if_drbd eth2 --raid_level 1 --raid_devices /dev/vdb,/dev/vdc --pv_device /dev/md0 --espurna_apikey 0123456789ABCDEF 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log"
+		command_parsed=$(echo "$command" | sed 's_/_\\/_g')
+		sed -i "s/^ExecStart=.*/$command_parsed/" auto-install.service
 		virt-copy-in -d if$i ../install-isard-flock.sh /opt/auto-install.sh
-		virt-copy-in -d if$i ./auto-install.service /etc/systemd/system/multi-user.target.wants/
+		#~ virt-copy-in -d if$i ./auto-install.service /etc/systemd/system/multi-user.target.wants/
 	fi
 	if [[ $i == 2 ]] || [[ $i == 3 ]]; then
 		qemu-img create -b /var/lib/libvirt/images/centos7.qcow2 -f qcow2 /var/lib/libvirt/images/if$i.qcow2
@@ -84,7 +86,9 @@ for ((i=1; i<=$1; i++)); do
 
 		virsh destroy if$i
 		virt-copy-in -d if$i ../../isard-flock /opt/
-		sed "s/ExecStart=.*/ExecStart=/usr/bin/bash -c '/opt/auto-install.sh --master 0 --if_viewers eth0 --if_nas eth1 --if_drbd eth2 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'" auto-install.service
+		command="ExecStart=/opt/auto-install.sh --master 0 --if_viewers eth0 --if_nas eth1 --if_drbd eth2 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log"
+		command_parsed=$(echo "$command" | sed 's_/_\\/_g')
+		sed -i "s/^ExecStart=.*/$command_parsed/" auto-install.service
 		virt-copy-in -d if$i ../install-isard-flock.sh /opt/auto-install.sh		
 		virt-copy-in -d if$i ./auto-install.service /etc/systemd/system/multi-user.target.wants/
 	fi
@@ -104,7 +108,10 @@ for ((i=1; i<=$1; i++)); do
 
 		virsh destroy if$i
 		virt-copy-in -d if$i ../../isard-flock /opt/
-		sed "s/ExecStart=.*/ExecStart=/usr/bin/bash -c '/opt/auto-install.sh --master 0 --if_viewers eth0 --if_nas eth1 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'" auto-install.service
+		sed "s/ExecStart=.*/'" auto-install.service
+		command="ExecStart=/usr/bin/bash -c '/opt/auto-install.sh --master 0 --if_viewers eth0 --if_nas eth1 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log"
+		command_parsed=$(echo "$command" | sed 's_/_\\/_g')
+		sed -i "s/^ExecStart=.*/$command_parsed/" auto-install.service
 		virt-copy-in -d if$i ../install-isard-flock.sh /opt/auto-install.sh	
 		virt-copy-in -d if$i ./auto-install.service /etc/systemd/system/multi-user.target.wants/
 	fi

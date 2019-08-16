@@ -18,6 +18,7 @@ def entry_point():
     except:
         return jsonify({}), 403
 
+	# ~ if host == 0: 
     try:
         value = request.args.get('value')
     except:

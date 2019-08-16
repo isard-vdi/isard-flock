@@ -21,7 +21,8 @@ import requests
 GET_HEADERS = {'accept': 'application/json', 'OData-Version': '4.0'}
 
 def get_plug_ip(options):
-    ipv=options["--ipaddr"].split(".")
+	if options["--plug"]=='': options["--plug"]="1"
+    ipv=options["--ip"].split(".")
     ipv[3]=str(int(ipv[3])+int(options["--plug"]))
     return '.'.join(ipv)
 
@@ -53,12 +54,12 @@ def send_get_request(conn, url):
 def get_power_status(conn, options):
     url = get_plug_url(options)
     status = send_get_request(conn, url)
-    if status =="0": return "off"
-    if status =="1": return "on"
-    fail_usage("Failed: You have to enter base ipaddr number!")
+    if status == 0: return "off"
+    if status == 1: return "on"
+    fail_usage("Failed: You have to enter base ipaddr number! "+status)
 
 def set_power_status(conn, options):
-    base_url = get_plug_url(options)
+    url = get_plug_url(options)
     if options['--action'] == "on": send_get_request(conn,url+"&value=1")
     if options['--action'] == "off": send_get_request(conn,url+"&value=0")
     if options['--action'] == "reboot": 

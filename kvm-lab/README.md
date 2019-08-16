@@ -24,6 +24,10 @@ virsh to create/destroy VMs.
 	qemu-img create -f qcow2 /var/lib/libvirt/images/centos7.qcow2 10G
 2. Create the cluster VM. Set the number of nodes to create i.e. 4
 	./create_cluster.sh <number of nodes>
+3. Start stonith VM and create keys and copy it to host (libvirt access)
+	ssh-keygen
+	ssh-copy-id root@192.168.122.1
+	(NOTE: Check on host the firewalld, sshd and selinux!)
 3. Set up cluster nodes. Inside each cluster node execute:
 	/opt/isard-flock/install-isard-flock.sh
 	
