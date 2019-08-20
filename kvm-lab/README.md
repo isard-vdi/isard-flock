@@ -28,11 +28,8 @@ virsh to create/destroy VMs.
 	ssh-keygen
 	ssh-copy-id root@192.168.122.1
 	(NOTE: Check on host the firewalld, sshd and selinux!)
-3. Set up cluster nodes. Inside each cluster node execute:
-	/opt/isard-flock/install-isard-flock.sh
+3. Start cluster nodes in order. Wait at least five minutes between node
+	start. Monitor pcs status on node if1 till it is online and repeat
+	process for other nodes in order.
 	
 Use '0123456789ABCDEF' as espurna stonith apikey
-
-NOTE: Start installing cluster from if1 and set that node as the master
-node. 
-	

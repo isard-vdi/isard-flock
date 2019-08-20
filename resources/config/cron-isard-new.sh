@@ -68,10 +68,13 @@ if [[ "$DRBD" == "0" ]]; then
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	
 else
-	# constraint to avoid node
-	pcs constraint location linstordb-drbd-clone avoids if$host
-	pcs constraint location linstor avoids if$host
-	pcs constraint location server avoids if$host
+	# constraint to avoid node as it is a diskless node
+	#~ pcs constraint location linstordb-drbd-clone avoids if$host
+	#~ pcs constraint location linstor avoids if$host
+	#~ pcs constraint location server avoids if$host
+
+	pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host -INFINITY
+	pcs constraint location add noif$host-server server if$host -INFINITY
 fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"

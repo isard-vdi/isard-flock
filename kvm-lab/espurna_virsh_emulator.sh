@@ -1,4 +1,5 @@
 #!/bin/bash
+#~ cp /opt/* /root/.ssh/
 nmcli con show nas > /dev/null
 if [[ $? -eq 10 ]]; then
 	nmcli --fields UUID,TIMESTAMP-REAL con show |  awk '{print $1}' | while read line; do nmcli con delete uuid  $line;    done

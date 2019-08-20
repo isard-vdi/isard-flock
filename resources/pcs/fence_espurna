@@ -21,7 +21,7 @@ import requests
 GET_HEADERS = {'accept': 'application/json', 'OData-Version': '4.0'}
 
 def get_plug_ip(options):
-	if options["--plug"]=='': options["--plug"]="1"
+    if options["--plug"]=='': options["--plug"]="1"
     ipv=options["--ip"].split(".")
     ipv[3]=str(int(ipv[3])+int(options["--plug"]))
     return '.'.join(ipv)
@@ -77,7 +77,7 @@ def set_power_status(conn, options):
         return 0
     
 def main():
-    device_opt = ["ipaddr", "web", "apikey"]
+    device_opt = ["ipaddr", "web", "apikey", "passwd"]
 
     atexit.register(atexit_handler)
 

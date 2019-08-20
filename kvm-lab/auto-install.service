@@ -1,9 +1,10 @@
 [Unit]
 Description=Espurna stonith API to virsh
-After=firewalld.service
+After=NetworkManager.service
 
 [Service]
-ExecStart=/usr/bin/bash -c '/opt/auto-install.sh --master 0 --if_viewers eth0 --if_nas eth1 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log
+ExecStart=/bin/bash -c 'cd /opt/isard-flock/ && ./install-isard-flock.sh --master 0 --if_viewers eth0 --if_nas eth1 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'
+##ExecStartPost=/bin/rm /etc/systemd/system/multi-user.target.wants/auto-install.service
 Type=simple
 
 [Install]

@@ -273,7 +273,7 @@ set_storage(){
 set_pacemaker(){
 	yum install -y corosync pacemaker pcs python-pycurl python-requests
 	#fence-agents-apc fence-agents-apc-snmp
-	cp resources/pcs/fence_espurna /usr/sbin/
+	cp ./resources/pcs/fence_espurna /usr/sbin/
 	chmod 755 /usr/sbin/fence_espurna
 	systemctl enable pcsd
 	systemctl enable corosync
@@ -365,7 +365,7 @@ EOF
 
 	# Stonith 
 	if [[ $espurna_fencing == 1 ]]; then
-		pcs stonith create stonith fence_espurna ipaddr=172.31.0.100 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5
+		pcs stonith create stonith fence_espurna ipaddr=172.31.0.100 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 passwd=acme
 	else
 		pcs property set stonith-enabled=false
 	fi

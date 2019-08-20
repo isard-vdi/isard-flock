@@ -18,7 +18,7 @@ def entry_point():
     except:
         return jsonify({}), 403
 
-	# ~ if host == 0: 
+    # ~ if host == 0: 
     try:
         value = request.args.get('value')
     except:
@@ -41,13 +41,17 @@ def entry_point():
     
     # ~ status=virsh list | grep VM[host-1]
     conn = libvirt.open("qemu+ssh://root@"+kvm_host_ip+"/system")
-    dom = conn.lookupByName("if"+str(host))
-    if dom.isActive(): 
+    try:
+        dom = conn.lookupByName("if"+str(host))
+        if dom.isActive(): 
+            conn.close()
+            return jsonify({"relay/0":1}), 200
+        else:
+            conn.close()
+            return jsonify({"relay/0":0}), 200
+    except:
         conn.close()
-        return jsonify({"relay/0":1}), 200
-    else:
-        conn.close()
-        return jsonify({"relay/0":0}), 200
-        
+        return jsonify({"relay/0":0}), 200        
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=80,debug=True)
