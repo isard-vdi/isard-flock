@@ -363,6 +363,8 @@ EOF
 	pcs cluster enable
 	pcs cluster start if$host
 
+	pcs resource defaults resource-stickiness=100
+	
 	# Stonith 
 	if [[ $espurna_fencing == 1 ]]; then
 		pcs stonith create stonith fence_espurna ipaddr=172.31.0.100 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 passwd=acme
@@ -425,6 +427,7 @@ EOF
 	#~ pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
 	pcs constraint colocation add nfs-client-clone with server -INFINITY
 
+	pcs constraint location server prefers if1=200
 	### TODO: Resource stickiness (cluster wide?)
 		
 	### This cron will monitor for new nodes (isard-new) and lauch auto config
