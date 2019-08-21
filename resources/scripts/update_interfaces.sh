@@ -18,8 +18,13 @@ set_if(){
 	net=0
 	if [[ $new_if == "drbd" ]]; then net=1; fi
 	nmcli con mod "$new_if" ipv4.addresses 172.31.$net.$(($host+10))/24
+	
 	nmcli dev disconnect "$new_if"
 	nmcli con up "$new_if"
+
+	MAC=$(cat /sys/class/net/$new_if/address)
+	echo -n 'HWADDR="'$MAC\" >> /etc/sysconfig/network-scripts/ifcfg-$new_if
+		
 	#~ ip link set $new_if down
 	#~ ip link set $new_if mtu 9000
 	#~ ip link set $new_if up

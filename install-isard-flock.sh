@@ -186,12 +186,14 @@ create_raid(){
 		dd if=/dev/zero of=$d bs=2048 count=4096
 	done
 	yes | mdadm --create --verbose /dev/md0 --level=$raid_level --raid-devices=${#raid_devices[@]} ${raid_devices[@]}
-	sudo mdadm --detail --scan > /etc/mdadm.conf
+	#~ sudo mdadm --detail --scan > /etc/mdadm.conf
+	echo "ARRAY /dev/md0 metadata=1.2" > /etc/mdadm.conf
 }
 
 create_drbdpool(){
 	yum install -y lvm2
 	yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
+	#~ echo 'global_filter= [ "a|/dev/md0|", "r|.*/|" ]' >> /etc/lvm/lvm.conf
 	echo "Creating drbdpool on $pv_device ..."
 	pvcreate $pv_device
 	vgcreate drbdpool $pv_device

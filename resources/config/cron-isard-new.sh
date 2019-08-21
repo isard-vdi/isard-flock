@@ -67,14 +67,6 @@ if [[ "$DRBD" == "0" ]]; then
 	linstor storage-pool create lvm if$host data drbdpool
 	linstor resource create --storage-pool data if$host isard	
 	linstor resource create --storage-pool data if$host linstordb	
-else
-	# constraint to avoid node as it is a diskless node
-	#~ pcs constraint location linstordb-drbd-clone avoids if$host
-	#~ pcs constraint location linstor avoids if$host
-	#~ pcs constraint location server avoids if$host
-
-	pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host -INFINITY
-	pcs constraint location add noif$host-server server if$host -INFINITY
 fi
 if [[ "$PCSD" == "0" ]]; then
 	echo "pcsd"
@@ -85,6 +77,16 @@ EOF
 	/sbin/pcs cluster node add if$host
 	/sbin/pcs cluster start if$host
 	/sbin/pcs cluster enable if$host
+	
+	if [[ "$DRBD" == "0" ]]; then
+		# constraint to avoid node as it is a diskless node
+		#~ pcs constraint location linstordb-drbd-clone avoids if$host
+		#~ pcs constraint location linstor avoids if$host
+		#~ pcs constraint location server avoids if$host
+
+		/sbin/pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host -INFINITY
+		/sbin/pcs constraint location add noif$host-server server if$host -INFINITY	
+	fi
 fi
 if [[ $RAID -eq 0 ]]; then
 	#~ echo "raid"
