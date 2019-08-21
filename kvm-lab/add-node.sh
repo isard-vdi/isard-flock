@@ -7,7 +7,7 @@ set_node_number(){
 	while [[ $? == 0 ]];
 	do
 		i=$((i+1))
-		virsh desc if$i 1&>2 /dev/null
+		virsh desc if$i 2>&1 /dev/null
 	done
 }
 

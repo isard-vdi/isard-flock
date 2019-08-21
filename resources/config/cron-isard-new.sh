@@ -3,17 +3,24 @@
 
 # check that cluster is running
 
+new_host=
+if [[ $(/sbin/pcs status nodes config | /bin/sed -n 2p | /bin/wc -w ) == 0 ]]; then
+	exit 0
+fi
 # check if new node appears in system or exit
 if ping -c 1 isard-new &> /dev/null
 then
   echo "Found new isard. Get new host number..."
-  host=1
-  while nc -z "if$host" 22 2>/dev/null; do
-    host=$((host+1))
-  done
+  #~ host=1
+  #~ while nc -z "if$host" 22 2>/dev/null; do
+    #~ host=$((host+1))
+  #~ done
+  host=$(($(/sbin/pcs status nodes config | /bin/sed -n 2p | /bin/wc -w ) + 1))
 else
   exit 0
 fi
+
+
 
 # remove keys if known already
 sed -i '/^isard-new/ d' /root/.ssh/known_hosts
@@ -78,12 +85,11 @@ EOF
 	/sbin/pcs cluster start if$host
 	/sbin/pcs cluster enable if$host
 	
-	if [[ "$DRBD" == "0" ]]; then
+	if ! [[ "$DRBD" == "0" ]]; then
 		# constraint to avoid node as it is a diskless node
 		#~ pcs constraint location linstordb-drbd-clone avoids if$host
 		#~ pcs constraint location linstor avoids if$host
 		#~ pcs constraint location server avoids if$host
-
 		/sbin/pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host -INFINITY
 		/sbin/pcs constraint location add noif$host-server server if$host -INFINITY	
 	fi
