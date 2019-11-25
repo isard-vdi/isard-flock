@@ -43,27 +43,31 @@ The cluster stonith it is set up using low end IoT devices with Espurna firmware
 
 Many tests have to be done to have it in production. We will try to update here the progress. 
 
+- 2019-11-25: Created a submodule in isard-flock-iso that will incorporate this isard-flock repo. Fixed the iso creation for both UEFI and non-UEFI machines. Installing and testing system in real development lab.
 - 2019-07-31: The install script is working with master, replicas and diskless nodes! We have also a new repo (isard-flock-iso) to create an iso with all the packages and scripts needed.
 - 2019-07-29: The install script allows to set up a master, replica and diskless node and the master node incorporates automatically other diskless nodes to the cluster. Now doing tests removing and adding replica nodes to the cluster.
 - 2019-07-14: We now have the test lab configured with all the hardware and all the drbd packages compiled and running. Now we will work in programming a new fence agent that works with Teckin sp22 IoT devices with Espurna firmware, as this will lower the final budget a lot. Also we are working in testing intel gVT and AMD sriov gpu virtualization.
 
 ### TASK LIST
 
-- Set up lab with 4 CentOS nodes [DONE]
-- Install & compile drbd & linstor [DONE]
-- Configure drbd [DONE]
-- Install pacemaker [DONE]
-- Install docker and Isard [DONE]
-- Performace tuning in 10G network & TCP stack
-- Performance tuning in drbd9
-- Test stonith with Teckin sp22 though espurna api [DONE]
-- Program fence-espurna for pacemaker [WIP]
-- Configure & test pacemaker [DONE]
-- Test removing and adding again a replica node [DONE]
-- Fix mosquitto container and grafana to monitor nodes power consumption [WIP]
-- Test intel gVT on i9-9900K [WIP]
-- Add virtual GPU mapping to IsardVDI software
-- Test hangs in AMD Firepro 7550 with sr-iov [WIP]
+- [x] Set up lab with 4 CentOS nodes
+
+- [x] Install & compile drbd & linstor
+
+- [x] Configure drbd
+
+- [x] Install pacemaker
+- [x] Install docker and Isard
+- [ ] Performace tuning in 10G network & TCP stack
+- [ ] Performance tuning in drbd9
+- [x] Test stonith with Teckin sp22 through [espurna](https://github.com/xoseperez/espurna) api
+- [x] Program fence-espurna for pacemaker
+- [x] Configure & test pacemaker
+- [x] Test removing and adding again a replica node
+- [ ] Fix mosquitto container and grafana to monitor nodes power consumption [WIP]
+- [ ] Test intel gVT on i9-9900K [WIP]
+- [ ] Add virtual GPU mapping to IsardVDI software
+- [ ] Test hangs in AMD Firepro 7550 with sr-iov [WIP]
 - Create ansibles for all the types of nodes [DISCARDED]
-- Final tests & production [WIP]
+- [ ] Final tests & production [WIP]
 
