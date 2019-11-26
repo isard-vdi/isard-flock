@@ -39,7 +39,7 @@ COMPOSE=/usr/local/bin/docker-compose
 
 meta_data()
 {
-	cat <<END
+    cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
 <resource-agent name="compose">
@@ -212,7 +212,7 @@ REQUIRE_IMAGE_PULL=0
 
 docker_usage()
 {
-	cat <<END
+    cat <<END
 usage: $0 {start|stop|monitor|validate-all|meta-data}
 
 Expects to have a fully populated OCF RA-compliant environment set.
@@ -222,85 +222,85 @@ END
 
 monitor_cmd_exec()
 {
-	local rc=$OCF_SUCCESS
-	local out
+    local rc=$OCF_SUCCESS
+    local out
 
-	if [ -z "$OCF_RESKEY_monitor_cmd" ]; then
-		return $rc
-	fi
+    if [ -z "$OCF_RESKEY_monitor_cmd" ]; then
+        return $rc
+    fi
 
-	if docker exec --help >/dev/null 2>&1; then
-		out=$(docker exec ${CONTAINER} $OCF_RESKEY_monitor_cmd 2>&1)
-		rc=$?
-	else
-		out=$(echo "$OCF_RESKEY_monitor_cmd" | nsenter --target $(docker inspect --format {{.State.Pid}} ${CONTAINER}) --mount --uts --ipc --net --pid 2>&1)
-		rc=$?
-	fi
+    if docker exec --help >/dev/null 2>&1; then
+        out=$(docker exec ${CONTAINER} $OCF_RESKEY_monitor_cmd 2>&1)
+        rc=$?
+    else
+        out=$(echo "$OCF_RESKEY_monitor_cmd" | nsenter --target $(docker inspect --format {{.State.Pid}} ${CONTAINER}) --mount --uts --ipc --net --pid 2>&1)
+        rc=$?
+    fi
 
-	if [ $rc -eq 127 ]; then
-		ocf_log err "monitor cmd failed (rc=$rc), output: $out"
-		ocf_exit_reason "monitor_cmd, ${OCF_RESKEY_monitor_cmd} , not found within container."
-		# there is no recovering from this, exit immediately
-		exit $OCF_ERR_ARGS
-	elif [ $rc -ne 0 ]; then
-		ocf_exit_reason "monitor cmd failed (rc=$rc), output: $out"
-		rc=$OCF_ERR_GENERIC
-	else
-		ocf_log debug "monitor cmd passed: exit code = $rc"
-	fi
+    if [ $rc -eq 127 ]; then
+        ocf_log err "monitor cmd failed (rc=$rc), output: $out"
+        ocf_exit_reason "monitor_cmd, ${OCF_RESKEY_monitor_cmd} , not found within container."
+        # there is no recovering from this, exit immediately
+        exit $OCF_ERR_ARGS
+    elif [ $rc -ne 0 ]; then
+        ocf_exit_reason "monitor cmd failed (rc=$rc), output: $out"
+        rc=$OCF_ERR_GENERIC
+    else
+        ocf_log debug "monitor cmd passed: exit code = $rc"
+    fi
 
-	return $rc
+    return $rc
 }
 
 container_exists()
 {
-	docker inspect --format {{.State.Running}} $CONTAINER | egrep '(true|false)' >/dev/null 2>&1
+    docker inspect --format {{.State.Running}} $CONTAINER | egrep '(true|false)' >/dev/null 2>&1
 }
 
 remove_container()
 {
-	if ocf_is_true "$OCF_RESKEY_reuse"; then
-		# never remove the container if we have reuse enabled.
-		return 0
-	fi
+    if ocf_is_true "$OCF_RESKEY_reuse"; then
+        # never remove the container if we have reuse enabled.
+        return 0
+    fi
 
-	container_exists
-	if [ $? -ne 0 ]; then
-		# don't attempt to remove a container that doesn't exist
-		return 0
-	fi
-	ocf_log notice "Cleaning up inactive container, ${CONTAINER}."
-	ocf_run docker rm $CONTAINER
+    container_exists
+    if [ $? -ne 0 ]; then
+        # don't attempt to remove a container that doesn't exist
+        return 0
+    fi
+    ocf_log notice "Cleaning up inactive container, ${CONTAINER}."
+    ocf_run docker rm $CONTAINER
 }
 
 docker_simple_status()
 {
-	local val
+    local val
 
-	container_exists
-	if [ $? -ne 0 ]; then
-		return $OCF_NOT_RUNNING
-	fi
+    container_exists
+    if [ $? -ne 0 ]; then
+        return $OCF_NOT_RUNNING
+    fi
 
-	# retrieve the 'Running' attribute for the container
-	val=$(docker inspect --format {{.State.Running}} $CONTAINER 2>/dev/null)
-	if [ $? -ne 0 ]; then
-		#not running as a result of container not being found
-		return $OCF_NOT_RUNNING
-	fi
+    # retrieve the 'Running' attribute for the container
+    val=$(docker inspect --format {{.State.Running}} $CONTAINER 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        #not running as a result of container not being found
+        return $OCF_NOT_RUNNING
+    fi
 
-	if ocf_is_true "$val"; then
-		# container exists and is running
-		return $OCF_SUCCESS
-	fi
+    if ocf_is_true "$val"; then
+        # container exists and is running
+        return $OCF_SUCCESS
+    fi
 
-	return $OCF_NOT_RUNNING
+    return $OCF_NOT_RUNNING
 }
 
 docker_health_status()
 {
 
-	if ocf_is_true "$OCF_RESKEY_query_docker_health"; then
+    if ocf_is_true "$OCF_RESKEY_query_docker_health"; then
                 local val
 
                 container_exists
@@ -330,172 +330,172 @@ docker_health_status()
                 fi
 
                 return $OCF_NOT_RUNNING
-	fi
+    fi
 
-	return 0
+    return 0
 }
 
 
 
 docker_monitor()
 {
-	local rc=0
+    local rc=0
 
-	ocf_log info "docker-compose monitor start"
+    ocf_log info "docker-compose monitor start"
 
-	$COMPOSE -f ${OCF_RESKEY_conf} config
+    $COMPOSE -f ${OCF_RESKEY_conf} config
 
-	rc=$?
-	if [ $rc -ne 0 ]; then
-		return $OCF_NOT_RUNNING
-	fi
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        return $OCF_NOT_RUNNING
+    fi
 
-	$COMPOSE -f ${OCF_RESKEY_conf} ps |grep 'Exit'
-	rc=$?
-	if [ $rc -eq 0 ]; then
-		return $OCF_NOT_RUNNING
-	fi
-	
-	rc=$($COMPOSE -f ${OCF_RESKEY_conf} ps -q |wc -l)
-	if [ $rc -eq 0 ]; then
-		ocf_log info "docker-compose monitor not running $rc"
-		return $OCF_NOT_RUNNING
-	fi
+    $COMPOSE -f ${OCF_RESKEY_conf} ps |grep 'Exit'
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        return $OCF_NOT_RUNNING
+    fi
+    
+    rc=$($COMPOSE -f ${OCF_RESKEY_conf} ps -q |wc -l)
+    if [ $rc -eq 0 ]; then
+        ocf_log info "docker-compose monitor not running $rc"
+        return $OCF_NOT_RUNNING
+    fi
 }
 
 docker_create_mounts() {
-	oldIFS="$IFS"
-	IFS=","
-	for directory in $OCF_RESKEY_mount_points; do
-		mkdir -p "$directory"
-	done
-	IFS="$oldIFS"
+    oldIFS="$IFS"
+    IFS=","
+    for directory in $OCF_RESKEY_mount_points; do
+        mkdir -p "$directory"
+    done
+    IFS="$oldIFS"
 }
 
 docker_start()
 {
-	ocf_log info "docker-compose start"
-	docker_create_mounts
+    ocf_log info "docker-compose start"
+    docker_create_mounts
 
-	if [ -n "$OCF_RESKEY_run_opts" ]; then
-		run_opts=$OCF_RESKEY_run_opts
-	fi
+    if [ -n "$OCF_RESKEY_run_opts" ]; then
+        run_opts=$OCF_RESKEY_run_opts
+    fi
 
-	ocf_run $COMPOSE -f ${OCF_RESKEY_conf} up -d ${run_opts}
+    ocf_run $COMPOSE -f ${OCF_RESKEY_conf} up -d ${run_opts}
 
-	sleep 5
-	if [ $? -ne 0 ]; then
-		ocf_exit_reason "docker-compose failed to launch container"
-		return $OCF_ERR_GENERIC
-	fi
+    sleep 5
+    if [ $? -ne 0 ]; then
+        ocf_exit_reason "docker-compose failed to launch container"
+        return $OCF_ERR_GENERIC
+    fi
 }
 
 docker_stop()
 {
-	ocf_log info "docker-compose stop"
-	local timeout=60
+    ocf_log info "docker-compose stop"
+    local timeout=60
 
-	if [ ! -f "$OCF_RESKEY_conf" ]; then
-		ocf_exit_reason "'conf' option is required"
-		exit $OCF_SUCCESS
-	fi
+    if [ ! -f "$OCF_RESKEY_conf" ]; then
+        ocf_exit_reason "'conf' option is required"
+        exit $OCF_SUCCESS
+    fi
 
-	$COMPOSE -f ${OCF_RESKEY_conf} ps |grep 'Exit'
-	rc=$?
-	if [ $rc -eq 0 ]; then
-		ocf_run $COMPOSE -f ${OCF_RESKEY_conf} down
-		return $OCF_SUCCESS
-	fi
-	
+    $COMPOSE -f ${OCF_RESKEY_conf} ps |grep 'Exit'
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        ocf_run $COMPOSE -f ${OCF_RESKEY_conf} down
+        return $OCF_SUCCESS
+    fi
+    
         $COMPOSE -f ${OCF_RESKEY_conf} ps |awk '{if(NR>2)print}' |wc -l
-	rc=$?
-	if [ $rc -ne 0 ]; then
-		return $OCF_NOT_RUNNING
-	fi
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        return $OCF_NOT_RUNNING
+    fi
 
-	if ocf_is_true "$OCF_RESKEY_force_kill"; then
-		ocf_run $COMPOSE -f ${OCF_RESKEY_conf} kill
-	else
-		ocf_log debug "waiting $timeout second[s] before killing container"
-		ocf_run $COMPOSE -f ${OCF_RESKEY_conf} stop
-	fi
+    if ocf_is_true "$OCF_RESKEY_force_kill"; then
+        ocf_run $COMPOSE -f ${OCF_RESKEY_conf} kill
+    else
+        ocf_log debug "waiting $timeout second[s] before killing container"
+        ocf_run $COMPOSE -f ${OCF_RESKEY_conf} stop
+    fi
 
-	if [ $? -ne 0 ]; then
-		ocf_exit_reason "Docker-compose failed to stop container."
-		return $OCF_ERR_GENERIC
-	fi
+    if [ $? -ne 0 ]; then
+        ocf_exit_reason "Docker-compose failed to stop container."
+        return $OCF_ERR_GENERIC
+    fi
 
-	ocf_run $COMPOSE -f ${OCF_RESKEY_conf} rm -f	
-	if [ $? -ne 0 ]; then
-		ocf_exit_reason "Docker-compose failed to remove stopped container."
-		return $OCF_ERR_GENERIC
-	fi
+    ocf_run $COMPOSE -f ${OCF_RESKEY_conf} rm -f    
+    if [ $? -ne 0 ]; then
+        ocf_exit_reason "Docker-compose failed to remove stopped container."
+        return $OCF_ERR_GENERIC
+    fi
 
-	return $OCF_SUCCESS
+    return $OCF_SUCCESS
 }
 
 image_exists()
 {
-	# if no tag was specified, use default "latest"
-	local COLON_FOUND=0
-	local SLASH_FOUND=0
-	local SERVER_NAME=""
-	local IMAGE_NAME="${OCF_RESKEY_image}"
-	local IMAGE_TAG="latest"
+    # if no tag was specified, use default "latest"
+    local COLON_FOUND=0
+    local SLASH_FOUND=0
+    local SERVER_NAME=""
+    local IMAGE_NAME="${OCF_RESKEY_image}"
+    local IMAGE_TAG="latest"
 
-	SLASH_FOUND="$(echo "${OCF_RESKEY_image}" | grep -o '/' | grep -c .)"
+    SLASH_FOUND="$(echo "${OCF_RESKEY_image}" | grep -o '/' | grep -c .)"
 
-	if [ ${SLASH_FOUND} -ge 1 ]; then
-		SERVER_NAME="$(echo ${IMAGE_NAME} | cut -d / -f 1-${SLASH_FOUND})"
-		IMAGE_NAME="$(echo ${IMAGE_NAME} | awk -F'/' '{print $NF}')"
-	fi
+    if [ ${SLASH_FOUND} -ge 1 ]; then
+        SERVER_NAME="$(echo ${IMAGE_NAME} | cut -d / -f 1-${SLASH_FOUND})"
+        IMAGE_NAME="$(echo ${IMAGE_NAME} | awk -F'/' '{print $NF}')"
+    fi
 
-	COLON_FOUND="$(echo "${IMAGE_NAME}" | grep -o ':' | grep -c .)"
-	if [ ${COLON_FOUND} -ge 1 ]; then
-		IMAGE_TAG="$(echo ${IMAGE_NAME} | awk -F':' '{print $NF}')"
-		IMAGE_NAME="$(echo ${IMAGE_NAME} | cut -d : -f 1-${COLON_FOUND})"
-	fi
+    COLON_FOUND="$(echo "${IMAGE_NAME}" | grep -o ':' | grep -c .)"
+    if [ ${COLON_FOUND} -ge 1 ]; then
+        IMAGE_TAG="$(echo ${IMAGE_NAME} | awk -F':' '{print $NF}')"
+        IMAGE_NAME="$(echo ${IMAGE_NAME} | cut -d : -f 1-${COLON_FOUND})"
+    fi
 
-	# IMAGE_NAME might be following formats:
-	# - image
-	# - repository:port/image
-	# - docker.io/image (some distro will display "docker.io/" as prefix)
-	docker images | awk '{print $1 ":" $2}' | egrep -q -s "^(docker.io\/|${SERVER_NAME}\/)?${IMAGE_NAME}:${IMAGE_TAG}\$"
-	if [ $? -eq 0 ]; then
-		# image found
-		return 0
-	fi
+    # IMAGE_NAME might be following formats:
+    # - image
+    # - repository:port/image
+    # - docker.io/image (some distro will display "docker.io/" as prefix)
+    docker images | awk '{print $1 ":" $2}' | egrep -q -s "^(docker.io\/|${SERVER_NAME}\/)?${IMAGE_NAME}:${IMAGE_TAG}\$"
+    if [ $? -eq 0 ]; then
+        # image found
+        return 0
+    fi
 
-	if ocf_is_true "$OCF_RESKEY_allow_pull"; then
-		REQUIRE_IMAGE_PULL=1
-		ocf_log notice "Image (${OCF_RESKEY_image}) does not exist locally but will be pulled during start"
-		return 0
-	fi
-	# image not found.
-	return 1
+    if ocf_is_true "$OCF_RESKEY_allow_pull"; then
+        REQUIRE_IMAGE_PULL=1
+        ocf_log notice "Image (${OCF_RESKEY_image}) does not exist locally but will be pulled during start"
+        return 0
+    fi
+    # image not found.
+    return 1
 }
 
 docker_validate()
 {
-	check_binary docker
-	ocf_log info "docker validate"
+    check_binary docker
+    ocf_log info "docker validate"
 
-	if [ -z "$OCF_RESKEY_conf" ]; then
-		ocf_exit_reason "'conf' option is required"
-		exit $OCF_ERR_CONFIGURED
-	fi
+    if [ -z "$OCF_RESKEY_conf" ]; then
+        ocf_exit_reason "'conf' option is required"
+        exit $OCF_ERR_CONFIGURED
+    fi
 
-	ocf_log info "docker validate1"
-	if [ -n "$OCF_RESKEY_monitor_cmd" ]; then
-		docker exec --help >/dev/null 2>&1
-		if [ ! $? ]; then
-			ocf_log info "checking for nsenter, which is required when 'monitor_cmd' is specified"
-			check_binary nsenter
-		fi
-	fi
-	ocf_log info "docker validate2"
+    ocf_log info "docker validate1"
+    if [ -n "$OCF_RESKEY_monitor_cmd" ]; then
+        docker exec --help >/dev/null 2>&1
+        if [ ! $? ]; then
+            ocf_log info "checking for nsenter, which is required when 'monitor_cmd' is specified"
+            check_binary nsenter
+        fi
+    fi
+    ocf_log info "docker validate2"
 
-	return $OCF_SUCCESS
+    return $OCF_SUCCESS
 }
 
 # TODO :
@@ -503,51 +503,51 @@ docker_validate()
 # When a user appoints reuse, the resource agent cannot connect plural clones with a container.
 
 if ocf_is_true "$OCF_RESKEY_CRM_meta_globally_unique"; then
-	if [ -n "$OCF_RESKEY_name" ]; then
-		if [ -n "$OCF_RESKEY_CRM_meta_clone_node_max" ] && [ "$OCF_RESKEY_CRM_meta_clone_node_max" -ne 1 ]
-		then
-			ocf_exit_reason "Cannot make plural clones from the same name parameter."
-			exit $OCF_ERR_CONFIGURED
-		fi
-		if [ -n "$OCF_RESKEY_CRM_meta_master_node_max" ] && [ "$OCF_RESKEY_CRM_meta_master_node_max" -ne 1 ]
-		then
-			ocf_exit_reason "Cannot make plural master from the same name parameter."
-			exit $OCF_ERR_CONFIGURED
-		fi
-	fi
-	: ${OCF_RESKEY_name=`echo ${OCF_RESOURCE_INSTANCE} | tr ':' '-'`} 
+    if [ -n "$OCF_RESKEY_name" ]; then
+        if [ -n "$OCF_RESKEY_CRM_meta_clone_node_max" ] && [ "$OCF_RESKEY_CRM_meta_clone_node_max" -ne 1 ]
+        then
+            ocf_exit_reason "Cannot make plural clones from the same name parameter."
+            exit $OCF_ERR_CONFIGURED
+        fi
+        if [ -n "$OCF_RESKEY_CRM_meta_master_node_max" ] && [ "$OCF_RESKEY_CRM_meta_master_node_max" -ne 1 ]
+        then
+            ocf_exit_reason "Cannot make plural master from the same name parameter."
+            exit $OCF_ERR_CONFIGURED
+        fi
+    fi
+    : ${OCF_RESKEY_name=`echo ${OCF_RESOURCE_INSTANCE} | tr ':' '-'`} 
 else 
-	: ${OCF_RESKEY_name=${OCF_RESOURCE_INSTANCE}}
+    : ${OCF_RESKEY_name=${OCF_RESOURCE_INSTANCE}}
 fi
 
 if [ -n "$OCF_RESKEY_container" ]; then
-	# we'll keep the container attribute around for a bit in order not to break
-	# any existing deployments. The 'name' attribute is prefered now though.
-	CONTAINER=$OCF_RESKEY_container
-	ocf_log warn "The 'container' attribute is depreciated"
+    # we'll keep the container attribute around for a bit in order not to break
+    # any existing deployments. The 'name' attribute is prefered now though.
+    CONTAINER=$OCF_RESKEY_container
+    ocf_log warn "The 'container' attribute is depreciated"
 else
-	CONTAINER=$OCF_RESKEY_name
+    CONTAINER=$OCF_RESKEY_name
 fi
 
 if [ -n "$OCF_RESKEY_env_path" ]; then
-	cd ${OCF_RESKEY_env_path}
+    cd ${OCF_RESKEY_env_path}
 fi
 
 case $__OCF_ACTION in
 meta-data) meta_data
-		exit $OCF_SUCCESS;;
+        exit $OCF_SUCCESS;;
 start)
-	docker_validate
-	docker_start;;
-stop)		docker_stop;;
-monitor)	docker_monitor;;
-validate-all)	docker_validate;;
-usage|help)	docker_usage
-		exit $OCF_SUCCESS
-		;;
-*)		docker_usage
-		exit $OCF_ERR_UNIMPLEMENTED
-		;;
+    docker_validate
+    docker_start;;
+stop)       docker_stop;;
+monitor)    docker_monitor;;
+validate-all)   docker_validate;;
+usage|help) docker_usage
+        exit $OCF_SUCCESS
+        ;;
+*)      docker_usage
+        exit $OCF_ERR_UNIMPLEMENTED
+        ;;
 esac
 rc=$?
 ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION : $rc"
