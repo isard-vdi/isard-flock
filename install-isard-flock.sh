@@ -302,12 +302,12 @@ set_docker(){
         --add-repo \
         https://download.docker.com/linux/centos/docker-ce.repo
     sudo yum install -y docker-ce docker-ce-cli containerd.io
-    sudo systemctl enable docker --now
     sudo curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
   else
     echo "docker & docker-compose already installed"
   fi
+  sudo systemctl enable docker --now
   echo "Pulling Isard $TAG docker images"
   docker-compose -f /opt/isard-flock/resources/compose/docker-compose.yml pull
 }

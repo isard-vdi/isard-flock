@@ -51,7 +51,7 @@ The password used for root and pacemaker cluster is isard-flock
     some messages in console and you can see if the first boot installation
     script has finished by looking for the file /.installing. When it
     disappeares you can work with the node or wait for new ones to be
-    started
+    started. You can monitor progress: tail -f /tmp/auto-install.log
 5. Start cluster nodes in order. Wait at least five minutes between node
     start. Monitor pcs status on node if1 till it is online and repeat
     process for other nodes in order.
