@@ -267,7 +267,7 @@ create_drbdpool(){
 }
 
 set_storage_dialog(){
-    storage_message="\n$(fdisk -l | grep Disk | grep /dev/[v..s])"
+    storage_message="\n$(fdisk -l | grep Disk | grep /dev/[nvs])"
     var=""
     i=1
     for dev in ${devs[@]}
