@@ -267,6 +267,7 @@ create_drbdpool(){
 }
 
 set_storage_dialog(){
+    storage_message="\n$(fdisk -l | grep Disk | grep /dev/[v..s])"
     var=""
     i=1
     for dev in ${devs[@]}
@@ -288,13 +289,13 @@ set_storage_dialog(){
             var="$var $i $dev "
             i=$((i+1))
         done
-        opt=$(dialog --menu --stdout "Select storage device:" 22 76 16 $var )
+        opt=$(dialog --menu --stdout "Select storage device:$storage_message" 22 76 16 $var )
         pv_device="/dev/${devs[$(($opt-1))]}"
         create_drbdpool
     fi
     if [[ ${#devs[@]} -eq 3 ]]; then
         # RAID 1 - 2 DISKS
-        cmd=(dialog --separate-output --checklist "Select 2 devices for RAID 1:" 22 76 16)
+        cmd=(dialog --separate-output --checklist "Select 2 devices for RAID 1:$storage_message" 22 76 16)
         options=($var)
         choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)       
         for c in $choices
