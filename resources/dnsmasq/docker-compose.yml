@@ -1,0 +1,16 @@
+version: "3.5"
+services:
+  isard-dnsmasq:
+    container_name: isard-dnsmasq
+    volumes:
+      - "/opt/isard-flock/resources/dnsmasq/dnsmasq.conf:/etc/dnsmasq.conf"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "53:53"
+      - "67-68:67-68"
+    image: isard/dnsmasq:latest
+    build:
+      context: .
+      dockerfile: Dockerfile    
+    privileged: true
+    restart: "no"

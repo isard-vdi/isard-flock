@@ -6,29 +6,38 @@
 #~ 2. REPLICA (DRBD+PACEMAKER+NAS+DOCKER)
 #~ 3. DISKLESS (PACEMAKER+NFS)
 
+# USAGE (if needed parameter missing it will start TUI
+# ./install-isard-flock.sh  \
+        --master 1 \
+        --if_viewers eth0,eth1 \
+        --if_nas eth2 \
+        --if_drbd eth3 \
+        --raid_level 1 \
+        --raid_devices /dev/vdb,/dev/vdc \
+        --pv_device /dev/md0 \
+        --espurna_apikey 0123456789ABCDEF
+
 touch /.installing
 
 # Defaults (If set will bypass tui selection menu)
-# Set 'none' to bypass interface configuration and dialog
-if_viewers=''       #'eth0'
-if_internet='none'  #
-if_nas=''           #'eth2'
-if_drbd=''          #'eth3'
+if_viewers=()       # (eth0 eth1 eth2)  If more than one set it will
+                    # create a bonding between them.
+if_nas=''           #'eth3'
+if_drbd=''          #'eth4'
 
-raid_level=-1   #1
-raid_devices=() #(/dev/vdb /dev/vdc)
-pv_device=''    #"/dev/md0"
+raid_level=-1       #1
+raid_devices=()     # (/dev/vdb /dev/vdc)
+pv_device=''        # "/dev/md0"
 
-master_node=-1  # 1 yes, 0 no
+master_node=-1      # 1 yes, 0 no
 
-espurna_fencing=0 # 0 no, 1 yes
-espurna_apikey="" # Set up the espurna_apikey from your IoT plug device.
+espurna_fencing=0   # 0 no, 1 yes
+espurna_apikey=""   # Set up the espurna_apikey from your IoT plug device.
 
 ### Command line args
 while true; do
   case "$1" in
-    --if_viewers )  if_viewers=$2; shift 2;;
-    --if_internet ) if_internet=$2; shift 2;;
+    --if_viewers )  IFS=',' read -r -a if_viewers  <<< "$2"; shift 2;;
     --if_nas )      if_nas=$2; shift 2;;
     --if_drbd )     if_drbd=$2; shift 2;;
     
@@ -58,19 +67,29 @@ install_base_pkg(){
 
 remove_all_if(){
     nmcli --fields UUID,TIMESTAMP-REAL con show |  awk '{print $1}' | while read line; do nmcli con delete uuid  $line;    done
-    rm -rf /etc/sysconfig/network-scripts/ifcfg-{nas,drbd,viewers,internet}
+    rm -rf /etc/sysconfig/network-scripts/ifcfg-{nas,drbd,viewers}
 }
 
 get_ifs(){
     i=1
     unset var
     unset interfaces
-    system_ifs=(lo viewers internet nas drbd)
+    message="\n"
+    system_ifs=(lo viewers nas drbd)
     for iface in $(ifconfig | cut -d ' ' -f1| tr ':' '\n' | awk NF)
     do
         if [[ $iface == "" ]] || [[ ${system_ifs[*]} =~ "$iface" ]] ; then continue; fi
         interfaces+=("$iface")
         var="$var $i $iface "
+        speed=$(cat /sys/class/net/$iface/speed)
+        if [[ $? -ne 0 ]]; then
+            speed="?"
+        fi
+        if [[ $speed == "-1" ]]; then
+            speed="?"
+        fi
+        mac=$(cat /sys/class/net/$iface/address)
+        message="$message\n$i - $iface - $mac - speed = $speed"
         i=$((i+1))
     done
     var="$var $((${#interfaces[@]}+1)) skip"
@@ -78,6 +97,9 @@ get_ifs(){
 
 set_if(){
     # original final
+    # Now only handles nas and drbd. Maybe it can be changed as there
+    # is only a viewers bond with all the interfaces for viewers handled
+    # in its own function
     if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
         net=0
         if [[ $new_if == "drbd" ]]; then net=1; fi
@@ -107,22 +129,57 @@ set_if(){
     get_ifs
 }
 
+set_viewers_bonding(){
+    nmcli con add type bond ifname viewers con-name viewers ipv4.method auto bond.options mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=1
+    #~ "mode=802.3ad miimon=100 updelay=12000 downdelay=0 xmit_hash_policy=1"
+    #~ mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=layer2+3
+    for if in ${if_viewers[@]}
+    do
+        nmcli con add type ethernet ifname "$if" master viewers
+        ip link set $if up
+        nmcli con up "$if"
+    done    
+    ip link set viewers up
+    nmcli con up viewers
+}
+
 set_viewers_if(){
-    if [[ $if_viewers == 'none' ]]; then
-        return
+    var=""
+    i=1
+    for dev in ${interfaces[@]}
+    do
+        var="$var $i $dev off "
+        i=$((i+1))
+    done
+    if [[ ${#if_viewers[@]} -eq 0 ]]; then 
+        cmd=(dialog --separate-output --checklist "Select 1 or more (bonding) Isard network interface[s]:$message" 22 76 16)
+        options=($var)
+        choices=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty) 
+        for c in $choices
+        do
+            if_viewers+=(${interfaces[$(($c-1))]})
+        done
     fi
-    if [[ $if_viewers == '' ]] ; then
-        opt=$(dialog --menu --stdout "Select interface for guests VIEWERS:" 0 0 0 $var )
-        if ! [[ $opt -gt ${#interfaces[@]} ]]; then
-            old_if=${interfaces[$(($opt-1))]}
-            new_if="viewers"
-            set_if
-        fi
-    else
-        old_if=$if_viewers
+
+    
+    if [[ ${#if_viewers[@]} -eq 1 ]]; then 
+        old_if=${if_viewers[0]}
         new_if="viewers"
         set_if
     fi
+    if [[ ${#if_viewers[@]} -gt 1 ]]; then 
+        set_viewers_bonding
+    fi
+    
+
+
+}
+
+set_master_viewer_ip(){
+    viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+    nmcli connection modify viewers +ipv4.addresses "${viewer_ip%.*}.11/32"
+    nmcli dev disconnect viewers
+    nmcli con up viewers
 }
 
 set_nas_if(){
@@ -130,7 +187,7 @@ set_nas_if(){
         return
     fi
     if [[ $if_nas == '' ]] ; then
-    opt=$(dialog --menu --stdout "Select interface for NAS:" 0 0 0 $var )
+    opt=$(dialog --menu --stdout "Select interface for NAS:$message" 22 76 16 $var )
         if ! [[ $opt -gt ${#interfaces[@]} ]]; then
             old_if=${interfaces[$(($opt-1))]}
             new_if="nas"
@@ -148,7 +205,7 @@ set_drbd_if(){
         return
     fi
     if [[ $if_drbd == '' ]] ; then
-        opt=$(dialog --menu --stdout "Select interface for DRBD:" 0 0 0 $var )
+        opt=$(dialog --menu --stdout "Select interface for DRBD:$message" 22 76 16 $var )
         if ! [[ $opt -gt ${#interfaces[@]} ]]; then
             old_if=${interfaces[$(($opt-1))]}
             new_if="drbd"
@@ -161,23 +218,23 @@ set_drbd_if(){
     fi
 }
 
-set_internet_if(){
-    if [[ $if_internet == 'none' ]]; then
-        return
-    fi
-    if [[ $if_internet == '' ]] ; then
-        opt=$(dialog --menu --stdout "Select interface for guests INTERNET:" 0 0 0 $var )
-        if ! [[ $opt -gt ${#interfaces[@]} ]]; then
-            old_if=${interfaces[$(($opt-1))]}
-            new_if="internet"
-            set_if
-        fi
-    else
-        old_if=$if_internet
-        new_if="internet"
-        set_if
-    fi
-}
+#~ set_internet_if(){
+    #~ if [[ $if_internet == 'none' ]]; then
+        #~ return
+    #~ fi
+    #~ if [[ $if_internet == '' ]] ; then
+        #~ opt=$(dialog --menu --stdout "Select interface for guests INTERNET:" 0 0 0 $var )
+        #~ if ! [[ $opt -gt ${#interfaces[@]} ]]; then
+            #~ old_if=${interfaces[$(($opt-1))]}
+            #~ new_if="internet"
+            #~ set_if
+        #~ fi
+    #~ else
+        #~ old_if=$if_internet
+        #~ new_if="internet"
+        #~ set_if
+    #~ fi
+#~ }
 
 create_raid(){
     yum install -y mdadm
@@ -231,7 +288,7 @@ set_storage_dialog(){
             var="$var $i $dev "
             i=$((i+1))
         done
-        opt=$(dialog --menu --stdout "Select storage device:" 0 0 0 $var )
+        opt=$(dialog --menu --stdout "Select storage device:" 22 76 16 $var )
         pv_device="/dev/${devs[$(($opt-1))]}"
         create_drbdpool
     fi
@@ -417,6 +474,9 @@ EOF
     # Isard floating IP
     pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
 
+    #~ viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+    #~ pcs resource create viewers-ip ocf:heartbeat:IPaddr2 ip=$viewer_ip cidr_netmask=32 nic=viewers:0  op monitor interval=30
+    
     # Isard compose
     pcs resource create isard-compose ocf:heartbeat:compose \
             conf="/opt/isard-flock/resources/compose/docker-compose.yml" \
@@ -440,7 +500,20 @@ EOF
     #~ pcs constraint colocation add nfs-client-clone with isard-ip -INFINITY
     pcs constraint colocation add nfs-client-clone with server -INFINITY
 
+    ## Isard hypervisor docker (should avoid isard server colocation)
+    pcs resource create hypervisor ocf:heartbeat:compose \
+            conf="/opt/isard-flock/resources/compose/hypervisor.yml" \
+            env_path="/opt/isard-flock/resources/compose" \
+            force_kill="true" \
+            op start interval=0s timeout=300s \
+            op stop interval=0 timeout=300s \
+            op monitor interval=60s timeout=60s 
+    pcs resource clone hypervisor clone-max=8 clone-node-max=8 notify=true
+    pcs constraint colocation add hypervisor with server -INFINITY
+    
+    ## Just to be sure it prefers the first one. Avoidable...
     pcs constraint location server prefers if1=200
+    
     ### TODO: Resource stickiness (cluster wide?)
         
     ### This cron will monitor for new nodes (isard-new) and lauch auto config
@@ -455,9 +528,9 @@ EOF
     #~ export TAG=v1.2.1
     
 #~ }
-install_master_isard(){
-    git clone
-}
+#~ install_master_isard(){
+    #~ git clone
+#~ }
 ##########################
 
 mkdir /var/log/isard-flock
@@ -499,38 +572,41 @@ get_ifs
 devs=($(lsblk -d -n -oNAME,RO | grep '0$' | awk '!/sr0/' | awk {'print $1'}))
 if [[ ${#devs[@]} -gt 2 ]]; then
     # secondary master
-    set_viewers_if
-    set_internet_if
     set_drbd_if
     set_nas_if
+    set_viewers_if
+    #~ set_internet_if
+
 
     set_storage
     set_pacemaker
     set_docker
     if [[ $master_node == 1 ]]; then
+        set_master_viewer_ip
         set_master_node
-        install_master_isard
+        #~ install_master_isard
     fi
 fi
 if [[ ${#devs[@]} -eq 2 ]]; then
     # replica
-    set_viewers_if
-    set_internet_if
     set_drbd_if
     set_nas_if
+    set_viewers_if
+    #~ set_internet_if
     
     set_storage
     set_pacemaker
     set_docker
     if [[ $master_node == 1 ]]; then
+        set_master_viewer_ip
         set_master_node
     fi
 fi
 if [[ ${#devs[@]} -eq 1 ]]; then
     # diskless
-    set_viewers_if
-    set_internet_if
     set_nas_if
+    set_viewers_if
+    #~ set_internet_if
 
     set_pacemaker
 fi
