@@ -1,0 +1,11 @@
+version: "3.5"
+services:
+  pkg-build:
+    container_name: pkgbuild
+    volumes:
+      - "/opt/RPMS:/RPMS"
+    image: isard/pkgbuild
+    build:
+      context: .
+      dockerfile: Dockerfile 
+    restart: "no"
