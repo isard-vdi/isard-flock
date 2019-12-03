@@ -78,7 +78,7 @@ get_ifs(){
     system_ifs=(lo viewers nas drbd)
     for iface in $(ifconfig | cut -d ' ' -f1| tr ':' '\n' | awk NF)
     do
-        if [[ $iface == "" ]] || [[ ${system_ifs[*]} =~ "$iface" ]] ; then continue; fi
+        if [[ $iface == "" ]] || [[ $iface == "docker0" ]] || [[ ${system_ifs[*]} =~ "$iface" ]] ; then continue; fi
         interfaces+=("$iface")
         var="$var $i $iface "
         speed=$(cat /sys/class/net/$iface/speed)
@@ -89,7 +89,8 @@ get_ifs(){
             speed="?"
         fi
         mac=$(cat /sys/class/net/$iface/address)
-        message="$message\n$i - $iface - $mac - speed = $speed"
+        if_ip=$(ip addr show $iface | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+        message="$message\n$i - $iface - $mac - $if_ip - speed = $speed"
         i=$((i+1))
     done
     var="$var $((${#interfaces[@]}+1)) skip"
@@ -237,7 +238,10 @@ set_drbd_if(){
 #~ }
 
 create_raid(){
-    yum install -y mdadm
+    rpm -qa | grep mdadm
+    if [[ $? == 1 ]] ; then
+        yum install -y mdadm
+    fi
     for d in "${raid_devices[@]}" 
     do
         dd if=/dev/zero of=$d bs=2048 count=4096
@@ -248,18 +252,24 @@ create_raid(){
 }
 
 create_drbdpool(){
-    yum install -y lvm2
-    yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
+    rpm -qa | grep lvm2
+    if [[ $? == 1 ]] ; then
+        yum install -y lvm2
+    fi
+    rpm -qa | grep kmod-drbd90
+    if [[ $? == 1 ]] ; then
+        yum install -y kmod-drbd90 drbd90-utils java-1.8.0-openjdk
+    fi
     #~ echo 'global_filter= [ "a|/dev/md0|", "r|.*/|" ]' >> /etc/lvm/lvm.conf
     echo "Creating drbdpool on $pv_device ..."
     pvcreate $pv_device
     vgcreate drbdpool $pv_device
     echo "drbdppool created..."
-    rpm -ivh ./resources/linstor/python-linstor-0.9.8-1.noarch.rpm \
-        ./resources/linstor/linstor-common-0.9.12-1.el7.noarch.rpm  \
-        ./resources/linstor/linstor-controller-0.9.12-1.el7.noarch.rpm  \
-        ./resources/linstor/linstor-satellite-0.9.12-1.el7.noarch.rpm \
-        ./resources/linstor/linstor-client-0.9.8-1.noarch.rpm
+    rpm -ivh ./resources/linstor/python-linstor*.rpm \
+        ./resources/linstor/linstor-common-*.rpm  \
+        ./resources/linstor/linstor-controller-*.rpm  \
+        ./resources/linstor/linstor-satellite-*.rpm \
+        ./resources/linstor/linstor-client-*rpm
     cp ./resources/linstor/linstor-satellite.service /usr/lib/systemd/system
     cp ./resources/linstor/linstor-controller.service /usr/lib/systemd/system
     cp ./resources/linstor/linstor-client.conf /etc/linstor/
@@ -331,7 +341,7 @@ set_storage(){
 }
 
 set_pacemaker(){
-    yum install -y corosync pacemaker pcs python-pycurl python-requests
+    yum install -y corosync pacemaker pcs python-pycurl python-requests fence-agents-common
     #fence-agents-apc fence-agents-apc-snmp
     cp ./resources/pcs/fence_espurna /usr/sbin/
     chmod 755 /usr/sbin/fence_espurna
@@ -510,7 +520,7 @@ EOF
             op stop interval=0 timeout=300s \
             op monitor interval=60s timeout=60s 
     pcs resource clone hypervisor clone-max=8 clone-node-max=8 notify=true
-    pcs constraint colocation add hypervisor with server -INFINITY
+    pcs constraint colocation add hypervisor-clone with server -INFINITY
     
     ## Just to be sure it prefers the first one. Avoidable...
     pcs constraint location server prefers if1=200
@@ -525,13 +535,6 @@ EOF
 
 }
 
-#~ install_isard(){
-    #~ export TAG=v1.2.1
-    
-#~ }
-#~ install_master_isard(){
-    #~ git clone
-#~ }
 ##########################
 
 mkdir /var/log/isard-flock
