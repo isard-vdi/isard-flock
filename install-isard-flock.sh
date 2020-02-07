@@ -28,7 +28,10 @@ if_drbd=''          #'eth4'
 raid_level=-1       #1
 raid_devices=()     # (/dev/vdb /dev/vdc)
 pv_device=''        # "/dev/md0"
-
+isard_volume_size='470M' # Volume size of isard storage (for everything).
+                         # Should fit in your cluster storage, so select
+                         # the maximum size of the smallest storage size
+                         # in the cluster drbd minus 1GB (I need it!)
 master_node=-1      # 1 yes, 0 no
 
 espurna_fencing=0   # 0 no, 1 yes
@@ -276,6 +279,20 @@ create_drbdpool(){
     #~ systemctl enable --now linstor-satellite (it is done when setting it up)
 }
 
+set_isard_volume_size{
+    size=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f3 | cut -d '.' -f1)
+    size=$((size-1))
+    units=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f4 | tr -d "i" | tr -d ",")
+    dialog --title "Isard volume storage" \
+    --backtitle "Do you want to use maximum storage available:?" \
+    --yesno "The maximum is $size$units?" 7 60
+    if [[ $? == 0 ]] ; then
+        isard_volume_size=$size$units
+    else
+        dialog --inputbox "Enter maximum size (<$size$units):" 8 40
+        isard_volume_size=$(echo $? | tr -d " ")
+    fi  
+}
 set_storage_dialog(){
     storage_message="\n$(fdisk -l | grep Disk | grep /dev/[nvs])"
     var=""
@@ -302,6 +319,7 @@ set_storage_dialog(){
         opt=$(dialog --menu --stdout "Select storage device:$storage_message" 22 76 16 $var )
         pv_device="/dev/${devs[$(($opt-1))]}"
         create_drbdpool
+        set_isard_volume_size
     fi
     if [[ ${#devs[@]} -eq 3 ]]; then
         # RAID 1 - 2 DISKS
@@ -317,6 +335,7 @@ set_storage_dialog(){
         create_raid
         pv_device="/dev/md0"
         create_drbdpool
+        set_isard_volume_size
     fi
     if [[ ${#devs[@]} -eq 4 ]]; then
         # RAID 1 - 2 DISKS + SPARE
@@ -404,7 +423,7 @@ set_master_node(){
     linstor node create if$host 172.31.0.1$host
     linstor storage-pool create lvm if$host data drbdpool
     linstor resource-definition create isard
-    linstor volume-definition create isard 470M
+    linstor volume-definition create isard $isard_volume_size
     linstor resource create isard --auto-place 1 --storage-pool data
     sleep 5
 
@@ -535,6 +554,14 @@ EOF
 
 }
 
+set_optimizations(){
+    # drbd
+    # linstor resource-definition drbd-options --al-extents 6007 isard
+    
+    # 10g irq affinity
+    
+    # tcp/ip stack sysctl for 10G
+}
 ##########################
 
 mkdir /var/log/isard-flock
