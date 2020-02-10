@@ -5,7 +5,7 @@
 
 new_host=
 if [[ $(/sbin/pcs status nodes config | /bin/sed -n 2p | /bin/wc -w ) == 0 ]]; then
-	exit 0
+    exit 0
 fi
 # check if new node appears in system or exit
 if ping -c 1 isard-new &> /dev/null
@@ -30,8 +30,8 @@ sed -i '/^isard-new/ d' /root/.ssh/known_hosts
 # Wait for node to finish if it is just installing isard-flock
 while ssh isard-new -- ls -lisa / | grep .installing
 do
-	sleep 5
-	echo "Remote host is still installing isard-flock. Waiting..."
+    sleep 5
+    echo "Remote host is still installing isard-flock. Waiting..."
 done
 
 
@@ -42,7 +42,7 @@ ssh -n -f isard-new "bash -c 'nohup /usr/local/bin/update_interfaces.sh $host &'
 
 while ! ping -c 1 172.31.0.1$host &> /dev/null
 do
-	sleep 2
+    sleep 2
 done
 sleep 5
 
@@ -67,39 +67,39 @@ echo "pcsd: $PCSD"
 # Lauch new node setup
 
 if [[ "$DRBD" == "0" ]]; then
-	echo "Setting drbd"
-	ssh if$host -- systemctl enable --now linstor-satellite
-	sleep 5
-	linstor node create if$host 172.31.0.1$host
-	linstor storage-pool create lvm if$host data drbdpool
-	linstor resource create --storage-pool data if$host isard	
-	linstor resource create --storage-pool data if$host linstordb	
+    echo "Setting drbd"
+    ssh if$host -- systemctl enable --now linstor-satellite
+    sleep 5
+    linstor node create if$host 172.31.1.1$host
+    linstor storage-pool create lvm if$host data drbdpool
+    linstor resource create --storage-pool data if$host isard   
+    linstor resource create --storage-pool data if$host linstordb   
 fi
 if [[ "$PCSD" == "0" ]]; then
-	echo "pcsd"
-	/sbin/pcs cluster auth if$host <<EOF
+    echo "pcsd"
+    /sbin/pcs cluster auth if$host-pacemaker <<EOF
 hacluster
 isard-flock
 EOF
-	/sbin/pcs cluster node add if$host
-	/sbin/pcs cluster start if$host
-	/sbin/pcs cluster enable if$host
-	
-	if ! [[ "$DRBD" == "0" ]]; then
-		# constraint to avoid node as it is a diskless node
-		#~ pcs constraint location linstordb-drbd-clone avoids if$host
-		#~ pcs constraint location linstor avoids if$host
-		#~ pcs constraint location server avoids if$host
-		/sbin/pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host -INFINITY
-		/sbin/pcs constraint location add noif$host-server server if$host -INFINITY	
-	fi
+    /sbin/pcs cluster node add if$host-pacemaker
+    /sbin/pcs cluster start if$host-pacemaker
+    /sbin/pcs cluster enable if$host-pacemaker
+    
+    if ! [[ "$DRBD" == "0" ]]; then
+        # constraint to avoid node as it is a diskless node
+        #~ pcs constraint location linstordb-drbd-clone avoids if$host
+        #~ pcs constraint location linstor avoids if$host
+        #~ pcs constraint location server avoids if$host
+        /sbin/pcs constraint location add noif$host-linstordb linstordb-drbd-clone if$host-pacemaker -INFINITY
+        /sbin/pcs constraint location add noif$host-server server if$host-pacemaker -INFINITY 
+    fi
 fi
 if [[ $RAID -eq 0 ]]; then
-	#~ echo "raid"
-	exit 0
-	#~ pcs constraint modify prefer_node_storage add if$host
-	# or play with node weights
-	
-	# wait for /opt/isard to be mounted (drbd or nfs)
-	# cd /opt/isard && docker-compose pull
+    #~ echo "raid"
+    exit 0
+    #~ pcs constraint modify prefer_node_storage add if$host
+    # or play with node weights
+    
+    # wait for /opt/isard to be mounted (drbd or nfs)
+    # cd /opt/isard && docker-compose pull
 fi
