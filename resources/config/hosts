@@ -35,15 +35,15 @@
 172.31.2.18 if8-pacemaker
 
 # STONITH NETWORK
-172.31.3.10 stonith-ap
-172.31.3.11 stonith-if1
-172.31.3.12 stonith-if2
-172.31.3.13 stonith-if3
-172.31.3.14 stonith-if4
-172.31.3.15 stonith-if5
-172.31.3.16 stonith-if6
-172.31.3.17 stonith-if7
-172.31.3.18 stonith-if8
+172.31.3.100 stonith-ap
+172.31.3.101 stonith-if1
+172.31.3.102 stonith-if2
+172.31.3.103 stonith-if3
+172.31.3.104 stonith-if4
+172.31.3.105 stonith-if5
+172.31.3.106 stonith-if6
+172.31.3.107 stonith-if7
+172.31.3.108 stonith-if8
 
 
 

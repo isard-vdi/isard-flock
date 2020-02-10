@@ -311,8 +311,8 @@ set_isard_volume_size(){
     if [[ $? == 0 ]] ; then
         isard_volume_size=$size$units
     else
-        dialog --inputbox "Enter maximum size IN GIGABYTES for Isard volume (<$size G):" 8 40
-        size=$($size | cut -d "G" -f 1 | cut -d "g" -f 1)
+        size=$(dialog --stdout --inputbox "Enter maximum size IN GIGABYTES for Isard volume <=$size G:" 8 40)
+        size=$(echo $size | cut -d "G" -f 1 | cut -d "g" -f 1)
         isard_volume_size=$size$units
     fi  
 }
@@ -488,7 +488,7 @@ EOF
     
     # Stonith 
     if [[ $espurna_fencing == 1 ]]; then
-        pcs stonith create stonith fence_espurna ipaddr=$net_stonith.10 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 passwd=acme
+        pcs stonith create stonith fence_espurna ipaddr=$net_stonith.100 apikey=$espurna_apikey pcmk_host_list="if1-pacemaker,if2-pacemaker,if3-pacemaker,if4-pacemaker,if5-pacemaker,if6-pacemaker,if7-pacemaker,if8-pacemaker" pcmk_host_map="if1-pacemaker:1;if2-pacemaker:2;if3-pacemaker:3;if4-pacemaker:4;if5-pacemaker:5;if6-pacemaker:6;if7-pacemaker:7;if8-pacemaker:8" pcmk_host_check=static-list power_wait=5 passwd=acme
     else
         pcs property set stonith-enabled=false
     fi
@@ -624,11 +624,11 @@ if [[ $master_node == -1 ]]; then
         --backtitle "Are you using espurna flashed IoT fencing device? RECOMMENDED" \
         --yesno "Set up espurna IoT fencing apikey?" 7 60
         if [[ $? == 0 ]] ; then
-            dialog --inputbox "Enter your espurna device apikey:" 8 40
-            if [[ $? != "" ]] ; then
+            res=$(dialog --stdout --inputbox "Enter your espurna device apikey:" 8 40)
+            if [[ ! -z $res ]] ; then
                 espurna_fencing=1
-                espurna_apikey=$?
-            fi 
+                espurna_apikey=$res
+            fi
         fi
     else
         master_node=0
