@@ -29,10 +29,11 @@ if_drbd=''          #'eth4'
 raid_level=-1       #1
 raid_devices=()     # (/dev/vdb /dev/vdc)
 pv_device=''        # "/dev/md0"
-isard_volume_size='470M' # Volume size of isard storage (for everything).
+isard_volume_size='' # Volume size of isard storage (for everything).
                          # Should fit in your cluster storage, so select
                          # the maximum size of the smallest storage size
                          # in the cluster drbd minus 1GB (I need it!)
+                         # Examples: 470M, 200G, 2000G
 master_node=-1      # 1 yes, 0 no
 
 espurna_fencing=0   # 0 no, 1 yes
@@ -293,17 +294,26 @@ create_drbdpool(){
 }
 
 set_isard_volume_size(){
-    size=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f3 | cut -d '.' -f1)
-    size=$(($size-1))
-    units=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f4 | tr -d "i" | tr -d ",")
+    if [[ ! -z $isard_volume_size ]]; then
+        ### It is already set
+        return
+    fi
+    size=$(pvs --units g --separator ";" /dev/md0 | grep /dev/md0 | cut -d ";" -f5 | cut -d "," -f 1)
+    size=$(($size-1)) # We need some MB for linstor database storage
+    if [ $size -lt 2 ]; then # We are in test environment, set a minimum size
+        isard_volume_size=470M
+        return
+    fi
+    units='G' 
     dialog --title "Isard volume storage" \
     --backtitle "Do you want to use maximum storage available:?" \
-    --yesno "The maximum is $size$units?" 7 60
+    --yesno "The maximum size for Isard volume is $size GIGABYTES.\n Use full size?" 7 60
     if [[ $? == 0 ]] ; then
         isard_volume_size=$size$units
     else
-        dialog --inputbox "Enter maximum size (<$size$units):" 8 40
-        isard_volume_size=$(echo $? | tr -d " ")
+        dialog --inputbox "Enter maximum size IN GIGABYTES for Isard volume (<$size G):" 8 40
+        size=$($size | cut -d "G" -f 1 | cut -d "g" -f 1)
+        isard_volume_size=$size$units
     fi  
 }
 
