@@ -5,6 +5,11 @@
     #~ rm -rf /etc/sysconfig/network-scripts/ifcfg-{nas,drbd}
 #~ }
 
+net_nas='172.31.0'
+net_drbd='172.31.1'
+net_pacemaker='172.31.2'
+net_stonith='172.31.3'
+
 update_ifs(){
     for new_if in $(ifconfig | cut -d ' ' -f1| tr ':' '\n' | awk NF)
     do
@@ -15,16 +20,24 @@ update_ifs(){
 }
 
 set_if(){
-    net=0
-    if [[ $new_if == "drbd" ]]; then net=1; fi
-    nmcli con mod "$new_if" ipv4.addresses 172.31.$net.$(($host+10))/24
+    if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
+        if [[ $new_if == "nas" ]]; then
+            nmcli con mod "$new_if" ipv4.addresses $net_nas.$(($host+10))/24
+        fi
+        if [[ $new_if == "drbd" ]]; then
+            nmcli con mod "$new_if" +ipv4.addresses $net_drbd.$(($host+10))/24
+            nmcli con mod "$new_if" +ipv4.addresses $net_pacemaker.$(($host+10))/24
+            nmcli con mod "$new_if" +ipv4.addresses $net_stonith.$(($host+10))/24
+        fi
+        #~ nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
+    fi  
     
     nmcli dev disconnect "$new_if"
     nmcli con up "$new_if"
 
     MAC=$(cat /sys/class/net/$new_if/address)
     echo -n 'HWADDR="'$MAC\" >> /etc/sysconfig/network-scripts/ifcfg-$new_if
-        
+           
     #~ ip link set $new_if down
     #~ ip link set $new_if mtu 9000
     #~ ip link set $new_if up

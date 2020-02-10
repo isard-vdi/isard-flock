@@ -8,14 +8,15 @@
 
 # USAGE (if needed parameter missing it will start TUI
 # ./install-isard-flock.sh  \
-        --master 1 \
-        --if_viewers eth0,eth1 \
-        --if_nas eth2 \
-        --if_drbd eth3 \
-        --raid_level 1 \
-        --raid_devices /dev/vdb,/dev/vdc \
-        --pv_device /dev/md0 \
-        --espurna_apikey 0123456789ABCDEF
+#        --master 1 \
+#        --if_viewers eth0,eth1 \
+#        --if_nas eth2 \
+#        --if_drbd eth3 \
+#        --raid_level 1 \
+#        --raid_devices /dev/vdb,/dev/vdc \
+#        --pv_device /dev/md0 \
+#        --isard_volume_size 210G \
+#        --espurna_apikey 0123456789ABCDEF
 
 touch /.installing
 
@@ -37,6 +38,14 @@ master_node=-1      # 1 yes, 0 no
 espurna_fencing=0   # 0 no, 1 yes
 espurna_apikey=""   # Set up the espurna_apikey from your IoT plug device.
 
+
+### DO NOT MODIFY FROM HERE
+
+net_nas='172.31.0'
+net_drbd='172.31.1'
+net_pacemaker='172.31.2'
+net_stonith='172.31.3'
+
 ### Command line args
 while true; do
   case "$1" in
@@ -48,6 +57,7 @@ while true; do
     --raid_devices ) IFS=',' read -r -a raid_devices  <<< "$2"; shift 2;;
     --pv_device )   pv_device=$2; shift 2;;
     
+    --isard_volume_size ) isard_volume_size=$2; shift 2;;
     --master )      master_node=$2; shift 2;;
     --espurna_apikey )  espurna_apikey=$2; espurna_fencing=1; shift 2;;
     -- ) shift; break ;;
@@ -105,22 +115,25 @@ set_if(){
     # is only a viewers bond with all the interfaces for viewers handled
     # in its own function
     if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
-        net=0
-        if [[ $new_if == "drbd" ]]; then net=1; fi
         if [[ $host == 1 ]]; then
             fhost=11
         else
             fhost=254
         fi
-        nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 172.31.$net.$fhost/24
+        if [[ $new_if == "nas" ]]; then
+            nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 $net_nas.$fhost/24
+        fi
+        if [[ $new_if == "drbd" ]]; then
+            nmcli con add con-name "$new_if" ifname $old_if type ethernet ip4 $net_drbd.$fhost/24
+            nmcli connection modify "$new_if" +ipv4.addresses $net_pacemaker.$fhost/24
+            nmcli connection modify "$new_if" +ipv4.addresses $net_stonith.$fhost/24
+        fi
+        nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
     else
         nmcli con add con-name "$new_if" ifname $old_if type ethernet ipv4.method auto
     fi
     nmcli con mod "$new_if" connection.interface-name "$new_if"
     nmcli con mod "$new_if" ipv6.method ignore
-    if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
-        nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
-    fi
     MAC=$(cat /sys/class/net/$old_if/address)
     echo -n 'HWADDR="'$MAC\" >> /etc/sysconfig/network-scripts/ifcfg-$new_if
     ip link set $old_if down
@@ -279,9 +292,9 @@ create_drbdpool(){
     #~ systemctl enable --now linstor-satellite (it is done when setting it up)
 }
 
-set_isard_volume_size{
+set_isard_volume_size(){
     size=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f3 | cut -d '.' -f1)
-    size=$((size-1))
+    size=$(($size-1))
     units=$(fdisk -l | grep Disk | grep $pv_device | head -n1 | cut -d ' ' -f4 | tr -d "i" | tr -d ",")
     dialog --title "Isard volume storage" \
     --backtitle "Do you want to use maximum storage available:?" \
@@ -293,6 +306,7 @@ set_isard_volume_size{
         isard_volume_size=$(echo $? | tr -d " ")
     fi  
 }
+
 set_storage_dialog(){
     storage_message="\n$(fdisk -l | grep Disk | grep /dev/[nvs])"
     var=""
@@ -396,7 +410,12 @@ set_docker(){
   fi
   sudo systemctl enable docker --now
   echo "Pulling Isard $TAG docker images"
-  docker-compose -f /opt/isard-flock/resources/compose/docker-compose.yml pull
+    if [[ $espurna_fencing == 1 ]]; then
+        docker-compose -f /opt/isard-flock/resources/compose/docker-compose.yml pull
+    else
+        docker-compose -f /opt/isard-flock/resources/compose/docker-compose-without-mosquitto.yml pull
+    fi  
+  
 }
 
 
@@ -420,7 +439,7 @@ set_master_node(){
     sleep 5
     
     # Create node & resources
-    linstor node create if$host 172.31.0.1$host
+    linstor node create if$host $net_drbd.1$host
     linstor storage-pool create lvm if$host data drbdpool
     linstor resource-definition create isard
     linstor volume-definition create isard $isard_volume_size
@@ -447,19 +466,19 @@ set_master_node(){
     ### PACEMAKER
     # Add host & start cluster
     #~ usermod --password $(echo isard-flock | openssl passwd -1 -stdin) hacluster
-    pcs cluster auth if$host <<EOF
+    pcs cluster auth if$host-pacemaker <<EOF
 hacluster
 isard-flock
 EOF
-    pcs cluster setup --name isard if$host
+    pcs cluster setup --name isard if$host-pacemaker
     pcs cluster enable
-    pcs cluster start if$host
+    pcs cluster start if$host-pacemaker
 
     pcs resource defaults resource-stickiness=100
     
     # Stonith 
     if [[ $espurna_fencing == 1 ]]; then
-        pcs stonith create stonith fence_espurna ipaddr=172.31.0.100 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 passwd=acme
+        pcs stonith create stonith fence_espurna ipaddr=$net_stonith.10 apikey=$espurna_apikey pcmk_host_list="if1,if2,if3,if4,if5,if6,if7,if8" pcmk_host_map="if1:1;if2:2;if3:3;if4:4;if5:5;if6:6;if7:7;if8:8" pcmk_host_check=static-list power_wait=5 passwd=acme
     else
         pcs property set stonith-enabled=false
     fi
@@ -489,27 +508,32 @@ EOF
     yum install nfs-utils -y
     pcs resource create nfs-daemon systemd:nfs-server 
     pcs resource create nfs-root exportfs \
-    clientspec=172.31.0.0/255.255.255.0 \
+    clientspec=$net_nas.0/255.255.255.0 \
     options=rw,crossmnt,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash \
     directory=/opt/ \
     fsid=0
 
     pcs resource create isard_data exportfs \
-    clientspec=172.31.0.0/255.255.255.0 \
+    clientspec=$net_nas.0/255.255.255.0 \
     wait_for_leasetime_on_stop=true \
     options=rw,mountpoint,async,wdelay,no_root_squash,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash directory=/opt/isard \
     fsid=11 \
     op monitor interval=30s
 
     # Isard floating IP
-    pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=172.31.0.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
+    pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=$net_nas.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
 
     #~ viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
     #~ pcs resource create viewers-ip ocf:heartbeat:IPaddr2 ip=$viewer_ip cidr_netmask=32 nic=viewers:0  op monitor interval=30
     
     # Isard compose
+    if [[ $espurna_fencing == 1 ]]; then
+        compose='docker-compose.yml'
+    else
+        compose='docker-compose-without-mosquitto.yml'
+    fi 
     pcs resource create isard-compose ocf:heartbeat:compose \
-            conf="/opt/isard-flock/resources/compose/docker-compose.yml" \
+            conf="/opt/isard-flock/resources/compose/$compose" \
             env_path="/opt/isard-flock/resources/compose" \
             force_kill="true" \
             op start interval=0s timeout=300s \
@@ -555,6 +579,7 @@ EOF
 }
 
 set_optimizations(){
+    return
     # drbd
     # linstor resource-definition drbd-options --al-extents 6007 isard
     
@@ -564,8 +589,19 @@ set_optimizations(){
 }
 ##########################
 
+
+show_final_config(){
+    echo "#### INTERFACES ####" >> /root/isard.cfg
+    echo "viewers ip: $(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
+    echo "    nas ip: $(ip addr show nas | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
+    echo "   drbd ip: $(ip addr show drbd | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
+    cat /root/isard.cfg
+}
+
 mkdir /var/log/isard-flock
+echo "#### SETTING /etc/hosts for isard-flock cluster ####\n#########################"
 scp ./resources/config/hosts /etc/hosts
+echo "#### INSTALL base packages needed ####\n#########################"
 install_base_pkg
 
 if [[ $master_node == -1 ]]; then
@@ -575,7 +611,7 @@ if [[ $master_node == -1 ]]; then
     if [[ $? == 0 ]] ; then
         master_node=1
         dialog --title "Fencing with espurna IoT" \
-        --backtitle "Are you using espurna flashed IoT fencing device?" \
+        --backtitle "Are you using espurna flashed IoT fencing device? RECOMMENDED" \
         --yesno "Set up espurna IoT fencing apikey?" 7 60
         if [[ $? == 0 ]] ; then
             dialog --inputbox "Enter your espurna device apikey:" 8 40
@@ -596,6 +632,7 @@ if [[ $master_node == 1 ]]; then
     host=1
 fi
 
+echo "#### REMOVE all interface configurations ####\n#########################"
 remove_all_if
 get_ifs
 
@@ -603,14 +640,19 @@ get_ifs
 devs=($(lsblk -d -n -oNAME,RO | grep '0$' | awk '!/sr0/' | awk {'print $1'}))
 if [[ ${#devs[@]} -gt 2 ]]; then
     # secondary master
+    echo "#### CONFIGURE drbd interface (172.31.0.X) ####\n#########################"
     set_drbd_if
+    echo "#### CONFIGURE nas interface (172.30.0.X) ####\n#########################"
     set_nas_if
+    echo "#### CONFIGURE isard interface with dhcp ####\n#########################"
     set_viewers_if
     #~ set_internet_if
 
-
+    echo "#### CONFIGURE storage ####\n#########################"
     set_storage
+    echo "#### CONFIGURE pacemaker cluster ####\n#########################"
     set_pacemaker
+    echo "#### INSTALL docker & docker-compose ####\n#########################"
     set_docker
     if [[ $master_node == 1 ]]; then
         set_master_viewer_ip
@@ -643,6 +685,7 @@ if [[ ${#devs[@]} -eq 1 ]]; then
 fi
 
 rm /.installing
+show_final_config
 #~ if [[ $0 == "auto-install.sh" ]]; then
     #~ rm $0
 #~ fi

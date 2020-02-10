@@ -1,6 +1,7 @@
 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 
+# NAS NETWORK
 172.31.0.11 if1
 172.31.0.12 if2
 172.31.0.13 if3
@@ -13,12 +14,37 @@
 172.31.0.1 isard-nas
 172.31.0.254 isard-new
 
-172.31.0.100 stonith-ipaddr
-172.31.0.101 stonith-if1
-172.31.0.102 stonith-if2
-172.31.0.103 stonith-if3
-172.31.0.104 stonith-if4
-172.31.0.105 stonith-if5
-172.31.0.106 stonith-if6
-172.31.0.107 stonith-if7
-172.31.0.108 stonith-if8
+# DRBD NETWORK
+172.31.1.11 if1-drbd
+172.31.1.12 if2-drbd
+172.31.1.13 if3-drbd
+172.31.1.14 if4-drbd
+172.31.1.15 if5-drbd
+172.31.1.16 if6-drbd
+172.31.1.17 if7-drbd
+172.31.1.18 if8-drbd
+
+# COROSYNC NETWORK (PACEMAKER)
+172.31.2.11 if1-pacemaker
+172.31.2.12 if2-pacemaker
+172.31.2.13 if3-pacemaker
+172.31.2.14 if4-pacemaker
+172.31.2.15 if5-pacemaker
+172.31.2.16 if6-pacemaker
+172.31.2.17 if7-pacemaker
+172.31.2.18 if8-pacemaker
+
+# STONITH NETWORK
+172.31.3.10 stonith-ap
+172.31.3.11 stonith-if1
+172.31.3.12 stonith-if2
+172.31.3.13 stonith-if3
+172.31.3.14 stonith-if4
+172.31.3.15 stonith-if5
+172.31.3.16 stonith-if6
+172.31.3.17 stonith-if7
+172.31.3.18 stonith-if8
+
+
+
+
