@@ -88,7 +88,7 @@ for ((i=1; i<=$1; i++)); do
 		virsh destroy if$i
 		virt-copy-in -d if$i ../../isard-flock /opt/
 		sed -i "s/^ExecStart=.*/ExecStart=/" auto-install.service
-		command="ExecStart=/bin/bash -c 'cd /opt/isard-flock/ \&\& ./install-isard-flock.sh --master 0 --if_viewers eth0 --if_nas eth1 --if_drbd eth2 1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'"
+		command="ExecStart=/bin/bash -c 'cd /opt/isard-flock/ \&\& ./install-isard-flock.sh --master 0 --if_viewers eth0 --if_nas eth1 --if_drbd eth2  --isard_volume_size 470M  1>/tmp/auto-install.log 2>/tmp/auto-install-error.log'"
 		command_parsed=$(echo "$command" | sed 's_/_\\/_g')
 		sed -i "s/^ExecStart=.*/$command_parsed/" auto-install.service
 		virt-copy-in -d if$i ./auto-install.service /etc/systemd/system/multi-user.target.wants/

@@ -263,9 +263,9 @@ create_raid(){
     do
         dd if=/dev/zero of=$d bs=2048 count=4096
     done
-    yes | mdadm --create --verbose /dev/md0 --level=$raid_level --raid-devices=${#raid_devices[@]} ${raid_devices[@]}
+    yes | mdadm --create --verbose $pv_device --level=$raid_level --raid-devices=${#raid_devices[@]} ${raid_devices[@]}
     #~ sudo mdadm --detail --scan > /etc/mdadm.conf
-    echo "ARRAY /dev/md0 metadata=1.2" > /etc/mdadm.conf
+    echo "ARRAY $pv_device metadata=1.2" > /etc/mdadm.conf
 }
 
 create_drbdpool(){
@@ -298,10 +298,10 @@ set_isard_volume_size(){
         ### It is already set
         return
     fi
-    size=$(pvs --units g --separator ";" /dev/md0 | grep /dev/md0 | cut -d ";" -f5 | cut -d "," -f 1)
+    size=$(pvs --units g --separator ";" $pv_device | grep $pv_device | cut -d ";" -f5 | cut -d "," -f 1)
     size=$(($size-1)) # We need some MB for linstor database storage
     if [ $size -lt 2 ]; then # We are in test environment, set a minimum size
-        isard_volume_size=470M
+        isard_volume_size='470M'
         return
     fi
     units='G' 
@@ -309,11 +309,11 @@ set_isard_volume_size(){
     --backtitle "Do you want to use maximum storage available:?" \
     --yesno "The maximum size for Isard volume is $size GIGABYTES.\n Use full size?" 7 60
     if [[ $? == 0 ]] ; then
-        isard_volume_size=$size$units
+        isard_volume_size='$size$units'
     else
         size=$(dialog --stdout --inputbox "Enter maximum size IN GIGABYTES for Isard volume <=$size G:" 8 40)
         size=$(echo $size | cut -d "G" -f 1 | cut -d "g" -f 1)
-        isard_volume_size=$size$units
+        isard_volume_size='$size$units'
     fi  
 }
 
