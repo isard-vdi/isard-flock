@@ -103,7 +103,7 @@ get_ifs(){
             speed="?"
         fi
         mac=$(cat /sys/class/net/$iface/address)
-        if_ip=$(ip addr show $iface | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+        if_ip=$(ip -4 addr show $iface | grep -oP  "(?<=inet )[\d\.]+(?=/)" | head -1)
         message="$message\n$i - $iface - $mac - $if_ip - speed = $speed"
         i=$((i+1))
     done
@@ -130,11 +130,13 @@ set_if(){
             nmcli connection modify "$new_if" +ipv4.addresses $net_stonith.$fhost/24
         fi
         nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
+        nmcli con mod "$new_if" ipv4.never-default true
     else
         nmcli con add con-name "$new_if" ifname $old_if type ethernet ipv4.method auto
     fi
     nmcli con mod "$new_if" connection.interface-name "$new_if"
     nmcli con mod "$new_if" ipv6.method ignore
+    
     MAC=$(cat /sys/class/net/$old_if/address)
     echo -n 'HWADDR="'$MAC\" >> /etc/sysconfig/network-scripts/ifcfg-$new_if
     ip link set $old_if down
@@ -148,11 +150,12 @@ set_if(){
 }
 
 set_viewers_bonding(){
-    nmcli con add type bond ifname viewers con-name viewers ipv4.method auto bond.options mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=1
+    nmcli con add type bond ifname viewers con-name viewers ipv6.method ignore ipv4.method auto bond.options mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=layer2+3
     #~ "mode=802.3ad miimon=100 updelay=12000 downdelay=0 xmit_hash_policy=1"
     #~ mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=layer2+3
     for if in ${if_viewers[@]}
     do
+        #~ nmcli con mod viewers ipv6.method ignore
         nmcli con add type ethernet ifname "$if" master viewers
         ip link set $if up
         nmcli con up "$if"
@@ -194,8 +197,14 @@ set_viewers_if(){
 }
 
 set_master_viewer_ip(){
-    viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-    nmcli connection modify viewers +ipv4.addresses "${viewer_ip%.*}.11/32"
+    viewer_ip=$(ip -4 addr show viewers | grep -oP  "(?<=inet )[\d\.]+(?=/)" | head -1)
+    viewer_mask=$(nmcli -t con show viewers  | grep IP4.ADDRESS | cut -d '/' -f 2)
+    viewer_gw=$(nmcli -t con show viewers | grep IP4.GATEWAY | cut -d ':' -f 2)
+    viewer_dns=$(nmcli -t con show viewers  | grep IP4.DNS | cut -d ':' -f 2 | tr "\n" " ")
+    nmcli con mod viewers ipv4.method manual ipv4.addresses "${viewer_ip%.*}.11/$viewer_mask" ipv4.gateway "$viewer_gw" ipv4.dns "$viewer_dns"
+    echo "VIEWER ADDRESS: ${viewer_ip%.*}.11/$viewer_mask GATEWAY: $viewer_gw DNS: $viewer_dns" > /root/isard-nets-viewer.cfg
+    
+    #~ nmcli connection modify viewers +ipv4.addresses "${viewer_ip%.*}.11/32"
     nmcli dev disconnect viewers
     nmcli con up viewers
 }
@@ -356,8 +365,11 @@ set_storage_dialog(){
         done
         raid_devices=(${raid_sdevs[@]})
         raid_level=1
+        if [[ -z $pv_device ]]; then
+            pv_device="/dev/md0"
+        fi
         create_raid
-        pv_device="/dev/md0"
+        
         create_drbdpool
         set_isard_volume_size
     fi
@@ -533,8 +545,9 @@ EOF
     # Isard floating IP
     pcs resource create isard-ip ocf:heartbeat:IPaddr2 ip=$net_nas.1 cidr_netmask=32 nic=nas:0  op monitor interval=30 
 
-    #~ viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-    #~ pcs resource create viewers-ip ocf:heartbeat:IPaddr2 ip=$viewer_ip cidr_netmask=32 nic=viewers:0  op monitor interval=30
+    viewer_ip=$(ip -4 addr show viewers | grep -oP  "(?<=inet )[\d\.]+(?=/)" | head -1)
+    viewer_ip="${viewer_ip%.*}.10"
+    pcs resource create viewer-ip ocf:heartbeat:IPaddr2 ip=$viewer_ip cidr_netmask=32 nic=viewers:0  op monitor interval=30
     
     # Isard compose
     if [[ $espurna_fencing == 1 ]]; then
@@ -553,7 +566,7 @@ EOF
     #~ pcs resource group add server linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
     #~ pcs constraint order set linstordb-fs linstor-controller isard_fs nfs-daemon nfs-root isard_data isard-ip
 
-    pcs resource group add server isard_fs nfs-daemon nfs-root isard_data isard-ip isard-compose
+    pcs resource group add server isard_fs nfs-daemon nfs-root isard_data isard-ip isard-compose viewer-ip
     pcs constraint order set linstor server
     
     ## NFS client nodes configuration (should avoid isard nfs server colocation)
@@ -589,10 +602,21 @@ EOF
 }
 
 set_optimizations(){
-    return
     # drbd
     # linstor resource-definition drbd-options --al-extents 6007 isard
-    
+    linstor resource-definition drbd-options --read-balancing prefer-local \
+                                 --md-flushes no \
+                                 --resync-after -1 \
+                                 --disk-timeout 0 \
+                                 --rs-discard-granularity 0 \
+                                 --disk-flushes yes \
+                                 --al-extents 3833 \
+                                 --al-updates yes \
+                                 --on-io-error detach \
+                                 --disable-write-same no \
+                                 --disk-drain yes \
+                                 --disk-barrier yes \
+                                 --discard-zeroes-if-aligned yes isard
     # 10g irq affinity
     
     # tcp/ip stack sysctl for 10G
@@ -693,6 +717,8 @@ if [[ ${#devs[@]} -eq 1 ]]; then
 
     set_pacemaker
 fi
+
+set_optimizations
 
 rm /.installing
 show_final_config

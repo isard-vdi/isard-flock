@@ -25,9 +25,9 @@ set_if(){
             nmcli con mod "$new_if" ipv4.addresses $net_nas.$(($host+10))/24
         fi
         if [[ $new_if == "drbd" ]]; then
-            nmcli con mod "$new_if" +ipv4.addresses $net_drbd.$(($host+10))/24
-            nmcli con mod "$new_if" +ipv4.addresses $net_pacemaker.$(($host+10))/24
-            nmcli con mod "$new_if" +ipv4.addresses $net_stonith.$(($host+10))/24
+            nmcli con mod "$new_if" ipv4.addresses $net_drbd.$(($host+10))/24
+            nmcli con mod "$new_if" ipv4.addresses $net_pacemaker.$(($host+10))/24
+            nmcli con mod "$new_if" ipv4.addresses $net_stonith.$(($host+10))/24
         fi
         #~ nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
     fi  
@@ -44,10 +44,18 @@ set_if(){
 }
 
 set_viewers_if(){
-    viewer_ip=$(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-    nmcli connection modify viewers +ipv4.addresses "${viewer_ip%.*}.$(($host+10))/32"
+    viewer_ip=$(ip -4 addr show viewers | grep -oP  "(?<=inet )[\d\.]+(?=/)" | head -1)
+    viewer_mask=$(nmcli -t con show viewers  | grep IP4.ADDRESS | cut -d '/' -f 2)
+    viewer_gw=$(nmcli -t con show viewers | grep IP4.GATEWAY | cut -d ':' -f 2)
+    viewer_dns=$(nmcli -t con show viewers  | grep IP4.DNS | cut -d ':' -f 2 | tr "\n" " ")
+    nmcli con mod viewers ipv4.method manual ipv4.addresses "${viewer_ip%.*}.$(($host+10))/$viewer_mask" ipv4.gateway "$viewer_gw" ipv4.dns "$viewer_dns"
+    echo "VIEWER ADDRESS: ${viewer_ip%.*}.$(($host+10))/$viewer_mask GATEWAY: $viewer_gw DNS: $viewer_dns" > /root/isard-nets-viewer.cfg
+    
     nmcli dev disconnect viewers
     nmcli con up viewers
+
+    MAC=$(cat /sys/class/net/viewers/address)
+    echo -n 'HWADDR="'$MAC\" >> /etc/sysconfig/network-scripts/ifcfg-viewers
 }
 
 host=$1
