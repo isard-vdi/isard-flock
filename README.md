@@ -2,7 +2,7 @@
 
 Isard Flock is the name for the automated VDI clustering system based on drbd9 and pacemaker.
 
-**not in production yet, only documentation and tests**
+Now we have it in production! Easy to install and automated setup with https://github.com/isard-vdi/isard-flock-iso !
 
 ## What's this
 
@@ -43,6 +43,7 @@ The cluster stonith it is set up using low end IoT devices with Espurna firmware
 
 Many tests have to be done to have it in production. We will try to update here the progress. 
 
+- 2020-02-11: Working master and replica node in production cluster using isard-flock-iso and ESP8266 espurna flashed devices as stonith fencing. Implementation took us only one morning!
 - 2019-11-25: Created a submodule in isard-flock-iso that will incorporate this isard-flock repo. Fixed the iso creation for both UEFI and non-UEFI machines. Installing and testing system in real development lab.
 - 2019-07-31: The install script is working with master, replicas and diskless nodes! We have also a new repo (isard-flock-iso) to create an iso with all the packages and scripts needed.
 - 2019-07-29: The install script allows to set up a master, replica and diskless node and the master node incorporates automatically other diskless nodes to the cluster. Now doing tests removing and adding replica nodes to the cluster.
@@ -58,8 +59,8 @@ Many tests have to be done to have it in production. We will try to update here 
 
 - [x] Install pacemaker
 - [x] Install docker and Isard
-- [ ] Performace tuning in 10G network & TCP stack
-- [ ] Performance tuning in drbd9
+- [x] Performace tuning in 10G network & TCP stack
+- [x] Performance tuning in drbd9
 - [x] Test stonith with Teckin sp22 through [espurna](https://github.com/xoseperez/espurna) api
 - [x] Program fence-espurna for pacemaker
 - [x] Configure & test pacemaker
@@ -69,5 +70,5 @@ Many tests have to be done to have it in production. We will try to update here 
 - [ ] Add virtual GPU mapping to IsardVDI software
 - [ ] Test hangs in AMD Firepro 7550 with sr-iov [WIP]
 - Create ansibles for all the types of nodes [DISCARDED]
-- [ ] Final tests & production [WIP]
+- [x] Final tests & production [WIP]
 
