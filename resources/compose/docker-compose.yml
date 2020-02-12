@@ -29,25 +29,6 @@ services:
     depends_on:
       - isard-app
 
-  isard-hypervisor:
-    container_name: isard-hypervisor
-    volumes:
-      - "/opt/isard/ssh-certs:/root/.ssh"
-      - "/opt/isard:/isard"
-      - "/opt/isard/certs/default:/etc/pki/libvirt-spice"
-      - "/etc/localtime:/etc/localtime:ro"
-    ports:
-      - "5900-5999:5900-5999"
-      - "55900-55999:55900-55999"
-    networks:
-      - isard_network
-    image: isard/hypervisor:1.2.1
-    build:
-      context: .
-      dockerfile: dockers/hypervisor/Dockerfile    
-    privileged: true
-    restart: "no"
-        
   isard-app:
     container_name: isard-app
     volumes:
@@ -70,7 +51,6 @@ services:
     restart: "no"
     depends_on:
       - isard-database
-      - isard-hypervisor
 
   isard-grafana:
     container_name: isard-grafana

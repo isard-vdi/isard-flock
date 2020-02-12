@@ -307,6 +307,9 @@ set_isard_volume_size(){
         ### It is already set
         return
     fi
+	if [[ $master_node -ne 1 ]]; then
+		return
+	fi    
     size=$(pvs --units g --separator ";" $pv_device | grep $pv_device | cut -d ";" -f5 | cut -d "," -f 1)
     size=$(($size-1)) # We need some MB for linstor database storage
     if [ $size -lt 2 ]; then # We are in test environment, set a minimum size
@@ -586,7 +589,7 @@ EOF
             op stop interval=0 timeout=300s \
             op monitor interval=60s timeout=60s 
     pcs resource clone hypervisor clone-max=8 clone-node-max=8 notify=true
-    pcs constraint colocation add hypervisor-clone with server -INFINITY
+    #~ pcs constraint colocation add hypervisor-clone with server -INFINITY
     
     ## Just to be sure it prefers the first one. Avoidable...
     pcs constraint location server prefers if1=200
