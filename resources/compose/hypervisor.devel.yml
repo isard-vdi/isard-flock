@@ -1,0 +1,20 @@
+version: "3.5"
+services:
+  isard-hypervisor:
+    volumes:
+      - "/opt/isard/devel-isard/dockers/hypervisor/reset-hyper.sh:/reset-hyper.sh"
+      - "/opt/isard/devel-isard/dockers/hypervisor/start_proxy.py:/start_proxy.py"
+      - "/opt/isard/devel-isard/dockers/hypervisor/vlans-add.sh:/vlans-add.sh"
+      - "/opt/isard/devel-isard/dockers/hypervisor/vlans-discover.sh:/vlans-discover.sh"
+    environment:
+      - WEBSOCKETS=50
+    ports:
+      - "2022:22"
+      - "5900-5999:5900-5999"
+      - "6400-6499:6400-6499"
+    image: isard/hypervisor:${DEVELTAG:-latest}
+    build:
+      context: /opt/isard/devel-isard
+      dockerfile: dockers/hypervisor/Dockerfile    
+    privileged: true
+    restart: "no"

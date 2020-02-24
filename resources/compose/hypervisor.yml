@@ -7,13 +7,27 @@ services:
       - "/opt/isard:/isard"
       - "/opt/isard/certs/default:/etc/pki/libvirt-spice"
       - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - WEBSOCKETS=50
     ports:
       - "2022:22"
       - "5900-5999:5900-5999"
-      - "55900-55999:55900-55999"
-    image: isard/hypervisor:1.2.1
+      - "6400-6499:6400-6499"
+    networks:
+      - default
+      - internet-vms
+    image: isard/hypervisor:${TAG:-latest}
     build:
-      context: .
+      context: /opt/isard/devel-isard
       dockerfile: dockers/hypervisor/Dockerfile    
     privileged: true
     restart: "no"
+networks:
+  internet-vms:
+    driver: macvlan
+    driver_opts:
+      parent: viewers
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
