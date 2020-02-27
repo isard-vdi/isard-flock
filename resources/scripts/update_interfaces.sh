@@ -26,8 +26,8 @@ set_if(){
         fi
         if [[ $new_if == "drbd" ]]; then
             nmcli con mod "$new_if" ipv4.addresses $net_drbd.$(($host+10))/24
-            nmcli con mod "$new_if" ipv4.addresses $net_pacemaker.$(($host+10))/24
-            nmcli con mod "$new_if" ipv4.addresses $net_stonith.$(($host+10))/24
+            nmcli con mod "$new_if" +ipv4.addresses $net_pacemaker.$(($host+10))/24
+            nmcli con mod "$new_if" +ipv4.addresses $net_stonith.$(($host+10))/24
         fi
         #~ nmcli con mod "$new_if" 802-3-ethernet.mtu 9000
     fi  

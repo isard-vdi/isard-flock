@@ -1,6 +1,14 @@
 #!/usr/bin/python
 # coding: utf-8
-## yum install python-flask libvirt-python
+###################################################################
+# License: GPLv3
+# Author: IsardVDI
+# Version: 0.1
+# Description: Api that can receive commands from pacemaker
+#               fence_relay agent
+# Requirements: yum install python-flask libvirt-python
+##################################################################
+
 from flask import Flask, request, jsonify
 import libvirt
 

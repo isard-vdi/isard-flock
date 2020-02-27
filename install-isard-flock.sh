@@ -1,5 +1,11 @@
 #!/bin/bash
-
+###################################################################
+# License: GPLv3
+# Author: IsardVDI
+# Version: 0.1
+# Description: Installs a complete pacemaker+drbd cluster node
+# Requirements: Centos7 iso build with isard-flock-iso repo
+##################################################################
 # Install on CentOS minimal server
 
 #~ 1. MASTER (RAID+DRBD+PACEMAKER+NAS+DOCKER)
@@ -18,6 +24,10 @@
 #        --isard_volume_size 210G \
 #        --espurna_apikey 0123456789ABCDEF
 
+#~ exec >> /root/flock-install.log
+#~ exec 2>&1
+
+dmesg -D # Disable messages on console
 touch /.installing
 
 # Defaults (If set will bypass tui selection menu)
@@ -69,6 +79,7 @@ done
 
 ## FUNCTIONS
 install_base_pkg(){
+    echo "[install_base_pkg]"
     systemctl disable --now firewalld
     sed -i s/^SELINUX=.*$/SELINUX=disabled/ /etc/selinux/config && setenforce 0
     setenforce 0
@@ -80,11 +91,13 @@ install_base_pkg(){
 }
 
 remove_all_if(){
+    echo "[remove_all_if]"
     nmcli --fields UUID,TIMESTAMP-REAL con show |  awk '{print $1}' | while read line; do nmcli con delete uuid  $line;    done
     rm -rf /etc/sysconfig/network-scripts/ifcfg-{nas,drbd,viewers}
 }
 
 get_ifs(){
+    echo "[get_ifs]"
     i=1
     unset var
     unset interfaces
@@ -115,6 +128,7 @@ set_if(){
     # Now only handles nas and drbd. Maybe it can be changed as there
     # is only a viewers bond with all the interfaces for viewers handled
     # in its own function
+    echo "[set_if]"
     if [[ $new_if == "nas" ]] || [[ $new_if == "drbd" ]]; then
         if [[ $host == 1 ]]; then
             fhost=11
@@ -150,9 +164,8 @@ set_if(){
 }
 
 set_viewers_bonding(){
+    echo "[set_viewers_bonding]"
     nmcli con add type bond ifname viewers con-name viewers ipv6.method ignore ipv4.method auto bond.options mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=layer2+3
-    #~ "mode=802.3ad miimon=100 updelay=12000 downdelay=0 xmit_hash_policy=1"
-    #~ mode=802.3ad,miimon=100,lacp_rate=fast,xmit_hash_policy=layer2+3
     for if in ${if_viewers[@]}
     do
         #~ nmcli con mod viewers ipv6.method ignore
@@ -164,7 +177,8 @@ set_viewers_bonding(){
     nmcli con up viewers
 }
 
-set_viewers_if(){
+set_viewers_if(){    
+    echo "[set_viewers_if]"
     var=""
     i=1
     for dev in ${interfaces[@]}
@@ -191,12 +205,14 @@ set_viewers_if(){
     if [[ ${#if_viewers[@]} -gt 1 ]]; then 
         set_viewers_bonding
     fi
-    
-
-
 }
 
 set_master_viewer_ip(){
+    echo "[set_master_viewer_ip]"
+    nmcli con mod viewers ipv4.auto
+    nmcli dev disconnect viewers
+    nmcli con up viewers
+    sleep 10
     viewer_ip=$(ip -4 addr show viewers | grep -oP  "(?<=inet )[\d\.]+(?=/)" | head -1)
     viewer_mask=$(nmcli -t con show viewers  | grep IP4.ADDRESS | cut -d '/' -f 2)
     viewer_gw=$(nmcli -t con show viewers | grep IP4.GATEWAY | cut -d ':' -f 2)
@@ -210,6 +226,7 @@ set_master_viewer_ip(){
 }
 
 set_nas_if(){
+    echo "[set_nas_if]"
     if [[ $if_nas == 'none' ]]; then
         return
     fi
@@ -228,11 +245,17 @@ set_nas_if(){
 }
 
 set_drbd_if(){
+    echo "[set_drbd_if]"
     if [[ $if_drbd == 'none' ]]; then
         return
     fi
+    if [[ ${#devs[@]} -eq 1 ]]; then
+        msg="Select interface for PACEMAKER and STONITH:$message"
+    else
+        msg="Select interface for DRBD, PACEMAKER and STONITH:$message"
+    fi
     if [[ $if_drbd == '' ]] ; then
-        opt=$(dialog --menu --stdout "Select interface for DRBD:$message" 22 76 16 $var )
+        opt=$(dialog --menu --stdout "$msg" 22 76 16 $var )
         if ! [[ $opt -gt ${#interfaces[@]} ]]; then
             old_if=${interfaces[$(($opt-1))]}
             new_if="drbd"
@@ -245,39 +268,43 @@ set_drbd_if(){
     fi
 }
 
-#~ set_internet_if(){
-    #~ if [[ $if_internet == 'none' ]]; then
-        #~ return
-    #~ fi
-    #~ if [[ $if_internet == '' ]] ; then
-        #~ opt=$(dialog --menu --stdout "Select interface for guests INTERNET:" 0 0 0 $var )
-        #~ if ! [[ $opt -gt ${#interfaces[@]} ]]; then
-            #~ old_if=${interfaces[$(($opt-1))]}
-            #~ new_if="internet"
-            #~ set_if
-        #~ fi
-    #~ else
-        #~ old_if=$if_internet
-        #~ new_if="internet"
-        #~ set_if
-    #~ fi
-#~ }
+remove_existing_raids(){
+    echo "[remove_existing_raids]"
+    raids=$(cat /proc/mdstat | grep md | cut -d " " -f1)
+    for raid in $raids
+    do
+        devs=$(mdadm --detail "/dev/$raid" | grep /dev/ | tail -n +2 | cut -d "/" -f3 | tr '\r\n' ' ')
+        mdadm --stop /dev/$raid
+        for d in $devs
+        do
+            dd if=/dev/zero of=/dev/$d bs=2048 count=10000
+        done
+    done    
+    if [ -f /etc/mdadm.conf ]; then
+        rm /etc/mdadm.conf
+    fi
+    partprobe
+}
 
 create_raid(){
+    echo "[create_raid]"
     rpm -qa | grep mdadm
     if [[ $? == 1 ]] ; then
         yum install -y mdadm
     fi
+    remove_existing_raids
     for d in "${raid_devices[@]}" 
     do
-        dd if=/dev/zero of=$d bs=2048 count=4096
+        dd if=/dev/zero of=$d bs=2048 count=10000
     done
+    partprobe
     yes | mdadm --create --verbose $pv_device --level=$raid_level --raid-devices=${#raid_devices[@]} ${raid_devices[@]}
     #~ sudo mdadm --detail --scan > /etc/mdadm.conf
     echo "ARRAY $pv_device metadata=1.2" > /etc/mdadm.conf
 }
 
 create_drbdpool(){
+    echo "[create_drbd_pool]"
     rpm -qa | grep lvm2
     if [[ $? == 1 ]] ; then
         yum install -y lvm2
@@ -303,13 +330,14 @@ create_drbdpool(){
 }
 
 set_isard_volume_size(){
+    echo "[set_isard_volume_size]"
     if [[ ! -z $isard_volume_size ]]; then
         ### It is already set
         return
     fi
-	if [[ $master_node -ne 1 ]]; then
-		return
-	fi    
+    if [[ $master_node -ne 1 ]]; then
+        return
+    fi    
     size=$(pvs --units g --separator ";" $pv_device | grep $pv_device | cut -d ";" -f5 | cut -d "," -f 1)
     size=$(($size-1)) # We need some MB for linstor database storage
     if [ $size -lt 2 ]; then # We are in test environment, set a minimum size
@@ -327,9 +355,11 @@ set_isard_volume_size(){
         size=$(echo $size | cut -d "G" -f 1 | cut -d "g" -f 1)
         isard_volume_size='$size$units'
     fi  
+    echo "isard_volume_size=$isard_volume_size"
 }
 
 set_storage_dialog(){
+    echo "[set_storage_dialog]"
     storage_message="\n$(fdisk -l | grep Disk | grep /dev/[nvs])"
     var=""
     i=1
@@ -354,6 +384,7 @@ set_storage_dialog(){
         done
         opt=$(dialog --menu --stdout "Select storage device:$storage_message" 22 76 16 $var )
         pv_device="/dev/${devs[$(($opt-1))]}"
+        echo "NO RAID. Choosen pv_device: $pv_device"
         create_drbdpool
         set_isard_volume_size
     fi
@@ -371,6 +402,7 @@ set_storage_dialog(){
         if [[ -z $pv_device ]]; then
             pv_device="/dev/md0"
         fi
+        echo "RAID 1. Choosen pv_device: $pv_device"
         create_raid
         
         create_drbdpool
@@ -390,6 +422,7 @@ set_storage_dialog(){
 }
 
 set_storage(){
+    echo "[set_storage]"
     if [[ $raid_level == -1 ]] ; then
         set_storage_dialog  
     else
@@ -399,11 +432,17 @@ set_storage(){
 }
 
 set_pacemaker(){
-    yum install -y corosync pacemaker pcs python-pycurl python-requests fence-agents-common
-    #fence-agents-apc fence-agents-apc-snmp
+    echo "[set_pacemaker]"
+    yum install -y corosync pacemaker pcs python-pycurl python-requests fence-agents-common fence-agents-apc fence-agents-apc-snmp
+    # Espurna IoT flashed devices stonith
     cp ./resources/pcs/fence_espurna /usr/sbin/
     chmod 755 /usr/sbin/fence_espurna
+    # Relay fence_relay_api stonith
+    cp ./resources/pcs/fence_relay /usr/sbin/
+    chmod 755 /usr/sbin/fence_relay
+    # Docker-compose resource
     cp ./resources/pcs/compose /usr/lib/ocf/resource.d/heartbeat/
+    # Activate pacemaker cluster on this node
     systemctl enable pcsd
     systemctl enable corosync
     systemctl enable pacemaker
@@ -412,6 +451,7 @@ set_pacemaker(){
 }
 
 set_docker(){
+  echo "[set_docker]"
   if ! yum list installed docker-ce >/dev/null 2>&1 || [[ ! -f /usr/local/bin/docker-compose ]]; then
     sudo yum remove docker \
                       docker-client \
@@ -428,24 +468,26 @@ set_docker(){
         --add-repo \
         https://download.docker.com/linux/centos/docker-ce.repo
     sudo yum install -y docker-ce docker-ce-cli containerd.io
-    sudo curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
   else
     echo "docker & docker-compose already installed"
   fi
   sudo systemctl enable docker --now
-  echo "Pulling Isard $TAG docker images"
+  echo "Pulling Isard docker images"
     if [[ $espurna_fencing == 1 ]]; then
         docker-compose -f /opt/isard-flock/resources/compose/docker-compose.yml pull
     else
         docker-compose -f /opt/isard-flock/resources/compose/docker-compose-without-mosquitto.yml pull
-    fi  
-  
+    fi 
+    docker-compose -f /opt/isard-flock/resources/compose/hypervisor.yml pull 
 }
 
 
 #### MASTER FUNCTIONS ####
 set_master_node(){
+    echo "[set_master_node]"
+    echo "host=$host"
     # Hostname & keys & ntp & basic packages
     echo "if$host" > /etc/hostname
     sysctl -w kernel.hostname=if$host
@@ -467,6 +509,8 @@ set_master_node(){
     linstor node create if$host $net_drbd.1$host
     linstor storage-pool create lvm if$host data drbdpool
     linstor resource-definition create isard
+    echo "Now creating linstor volume definition isard with size: $isard_volume_size"
+    sleep 10
     linstor volume-definition create isard $isard_volume_size
     linstor resource create isard --auto-place 1 --storage-pool data
     sleep 5
@@ -605,6 +649,7 @@ EOF
 }
 
 set_optimizations(){
+    echo "[set_optimizations]"
     # drbd
     # linstor resource-definition drbd-options --al-extents 6007 isard
     linstor resource-definition drbd-options --read-balancing prefer-local \
@@ -626,14 +671,6 @@ set_optimizations(){
 }
 ##########################
 
-
-show_final_config(){
-    echo "#### INTERFACES ####" >> /root/isard.cfg
-    echo "viewers ip: $(ip addr show viewers | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
-    echo "    nas ip: $(ip addr show nas | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
-    echo "   drbd ip: $(ip addr show drbd | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)" >> /root/isard.cfg
-    cat /root/isard.cfg
-}
 
 mkdir /var/log/isard-flock
 echo "#### SETTING /etc/hosts for isard-flock cluster ####\n#########################"
@@ -714,6 +751,7 @@ if [[ ${#devs[@]} -eq 2 ]]; then
 fi
 if [[ ${#devs[@]} -eq 1 ]]; then
     # diskless
+    set_drbd_if
     set_nas_if
     set_viewers_if
     #~ set_internet_if
@@ -724,7 +762,6 @@ fi
 set_optimizations
 
 rm /.installing
-show_final_config
 #~ if [[ $0 == "auto-install.sh" ]]; then
     #~ rm $0
 #~ fi
