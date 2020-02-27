@@ -14,7 +14,7 @@ services:
     container_name: isard-hypervisor
     environment:
       WEBSOCKETS: '50'
-    image: isard/hypervisor:1.2.2-devel
+    image: isard/hypervisor:1.2.2-beta
     networks:
       default: {}
       internet-vms: {}
