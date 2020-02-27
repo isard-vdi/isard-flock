@@ -1,0 +1,12 @@
+[Unit]
+Description=Bring up viewers interface in promiscuous mode during boot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ip link set dev viewers promisc on
+TimeoutStartSec=0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

@@ -1,11 +1,5 @@
 #!/usr/bin/python -tt
-###################################################################
-# License: GPLv3
-# Author: IsardVDI
-# Version: 0.1
-# Description: Espurna IoT flashed devices fencing agent
-# agent.
-#
+
 # The Following Agent Has Been Tested On:
 #
 # Multiple Teckin TE22 with Espurna 
@@ -14,10 +8,17 @@
 # and the port number will be added to that IP
 #
 # NOTE: Requires python-requests
-##################################################################
 
 import sys, time
 import atexit
+###################################################################
+# License: GPLv3
+# Author: IsardVDI
+# Version: 0.1
+# Description: Pacemaker fence_relay agent for fence_relay_api.py
+# agent.
+# Requirements: 
+##################################################################
 import logging
 sys.path.append("/usr/share/fence")
 from fencing import *
@@ -27,14 +28,9 @@ import requests
 
 GET_HEADERS = {'accept': 'application/json', 'OData-Version': '4.0'}
 
-def get_plug_ip(options):
-    if options["--plug"]=='': options["--plug"]="1"
-    ipv=options["--ip"].split(".")
-    ipv[3]=str(int(ipv[3])+int(options["--plug"]))
-    return '.'.join(ipv)
 
 def get_plug_url(options):
-    return "http://"+get_plug_ip(options)+"/api/relay/0?apikey="+options["--apikey"]
+    return "http://"+options["--ip"]+"/api/relay/"+options["--plug"]+"?apikey="+options["--apikey"]
 
 def send_get_request(conn, url):
     try:
@@ -52,7 +48,7 @@ def send_get_request(conn, url):
         fail_usage("Failed: Code received from espurna plug incorrect: "+str(resp.status_code)+"!")
     
     try:
-        status=resp.json()['relay/0']
+        status=resp.json()['status']
     except:
         fail(EC_STATUS)
     
@@ -63,7 +59,7 @@ def get_power_status(conn, options):
     status = send_get_request(conn, url)
     if status == 0: return "off"
     if status == 1: return "on"
-    fail_usage("Failed: You have to enter base ipaddr number! "+status)
+    fail_usage("Failed: Could not get plug status! "+status)
 
 def set_power_status(conn, options):
     url = get_plug_url(options)
@@ -91,24 +87,21 @@ def main():
     all_opt["apikey"] = {
             "getopt" : ":",
             "longopt" : "apikey",
-            "help" : "--apikey                  Put espurna api key",
+            "help" : "--apikey                  Put configured api key",
             "required" : "0",
-            "shortdesc" : "Put espurna api key",
+            "shortdesc" : "Put configured api key",
             "order" : 1}
     
     options = check_input(device_opt, process_input(device_opt))
 
     docs = {}
     docs["shortdesc"] = "Fence agent for espurna IoT"
-    docs["longdesc"] = "fence_espurna is an I/O Fencing agent \
-which can be used with IoT plug devices flashed with espurna. \
-It uses espurna apikey to access device api. The ipaddr should \
-be the base IP address for all plugs. \
-\n.P\n\
-For example if we have 4 hosts with 172.31.0.101 - 172.31.0.104 \
-the ipaddr should be the base IP 172.31.0.100 where the number \
-of the port will be added. "
-    docs["vendorurl"] = "https://github.com/xoseperez/espurna"
+    docs["longdesc"] = "fence_relay is an I/O Fencing agent \
+which can be used with any usb relay board plugged to any linux \
+board that has ethernet. You just need to run in that board the \
+provided fence_relay_api.py and configure your pacemaker stonith \
+device with device ipaddr and apikey"
+    docs["vendorurl"] = "https://github.com/isard-vdi/isard-flock"
     show_docs(options, docs)
 
     ## Operate the fencing device
