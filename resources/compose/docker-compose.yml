@@ -8,7 +8,7 @@ services:
     networks:
       - isard_network
     image: rethinkdb
-    restart: "no"
+    restart: unless-stopped
 
   isard-nginx:
     container_name: isard-nginx
@@ -21,18 +21,18 @@ services:
       - "443:443"
     networks:
       - isard_network
-    image: isard/nginx:1.2.1
+    image: isard/nginx:${TAG:-latest}
     build:
-      context: .
+      context: /opt/isard/devel-isard
       dockerfile: dockers/nginx/Dockerfile    
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       - isard-app
 
   isard-app:
     container_name: isard-app
     volumes:
-      - "/opt/isard/ssh-certs:/root/.ssh"
+      - "/opt/isard/sshkeys:/root/.ssh"
       - "/opt/isard/certs:/certs"
       - "/opt/isard/logs:/isard/logs"
       - "/opt/isard/database/wizard:/isard/install/wizard"
@@ -43,12 +43,12 @@ services:
       - "isard-engine:127.0.0.1"
     networks:
       - isard_network
-    image: isard/app:1.2.1
+    image: isard/app:${TAG:-latest}
     build:
-      context: .
+      context: /opt/isard/devel-isard
       dockerfile: dockers/app/Dockerfile
       target: production
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       - isard-database
 
@@ -69,8 +69,6 @@ services:
     restart: "no"
     logging:
         driver: none
-    #~ depends_on:
-      #~ - isard-app
 
   isard-mosquitto:
     container_name: isard-mosquitto
@@ -83,7 +81,6 @@ services:
       - isard_network
     image: isard/mosquitto:0.1
     restart: "no"
-
 
 networks:
   isard_network:

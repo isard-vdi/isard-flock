@@ -1,0 +1,30 @@
+version: "3.5"
+services:
+  isard-database:
+    ports:
+      - "8080:8080"      
+      - "28015:28015"
+    restart: "no"
+
+  isard-nginx:
+    volumes:
+      - "/opt/isard/devel-isard/dockers/nginx/nginx.conf:/etc/nginx/nginx.conf"
+      - "/opt/isard/devel-isard/src/webapp/static/viewers:/viewers"
+      - "/opt/isard/devel-isard/dockers/nginx/errors:/errors"
+      - "/opt/isard/devel-isard/dockers/nginx/dh.pem:/dh.pem"
+      - "/opt/isard/devel-isard/dockers/nginx/auto-generate-certs.sh:/opt/auto-generate-certs.sh"
+    image: isard/nginx:${DEVELTAG:-latest}
+    build:
+      target: development
+    restart: "no"
+
+  isard-app:
+    ports:
+      - "5000:5000"       
+      - "5555:5555"
+    volumes:
+      - "/opt/isard/devel-isard/src/:/isard"
+    image: isard/app:${DEVELTAG:-latest}
+    build:
+      target: development
+    restart: "no"
