@@ -13,6 +13,8 @@ services:
       - "/opt/isard/devel-isard/dockers/nginx/errors:/errors"
       - "/opt/isard/devel-isard/dockers/nginx/dh.pem:/dh.pem"
       - "/opt/isard/devel-isard/dockers/nginx/auto-generate-certs.sh:/opt/auto-generate-certs.sh"
+      - "/opt/isard/devel-isard/dockers/hypervisor/add-hypervisor.sh:/add-hypervisor.sh"
+      - "/opt/isard/devel-isard/dockers/hypervisor/add-hyper-rethink.py:/add-hyper-rethink.py"
     image: isard/nginx:${DEVELTAG:-latest}
     build:
       target: development

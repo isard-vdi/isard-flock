@@ -91,6 +91,8 @@ services:
       target: 443
     restart: "no"
     volumes:
+    - /opt/isard/devel-isard/dockers/hypervisor/add-hyper-rethink.py:/add-hyper-rethink.py:rw
+    - /opt/isard/devel-isard/dockers/hypervisor/add-hypervisor.sh:/add-hypervisor.sh:rw
     - /opt/isard/devel-isard/dockers/nginx/dh.pem:/dh.pem:rw
     - /opt/isard/devel-isard/dockers/nginx/errors:/errors:rw
     - /etc/localtime:/etc/localtime:ro
