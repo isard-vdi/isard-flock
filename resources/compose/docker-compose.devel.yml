@@ -30,3 +30,7 @@ services:
     build:
       target: development
     restart: "no"
+
+  isard-mosquitto:
+    volumes:
+      - "/opt/isard/devel-isard/extras/mosquitto/mqtt-carbon-proxy.py:/mqtt-carbon-proxy.py"

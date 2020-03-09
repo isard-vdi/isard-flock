@@ -66,10 +66,14 @@ services:
     networks:
       - isard_network
     image: isard/grafana:1.1
+    build:
+      context: /opt/isard/devel-isard
+      dockerfile: extras/grafana/Dockerfile    
     restart: "no"
     logging:
         driver: none
-
+    env_file:
+      - config.env
   isard-mosquitto:
     container_name: isard-mosquitto
     ports:
@@ -77,12 +81,27 @@ services:
         published: 1883
         protocol: tcp
         mode: host
+    volumes:
+      - "/opt/isard/logs/mosquitto:/var/log/"
     networks:
-      - isard_network
+      isard_network: null
+      stonith:
+        ipv4_address: 172.31.3.10
     image: isard/mosquitto:0.1
+    build:
+      context: /opt/isard/devel-isard
+      dockerfile: extras/mosquitto/Dockerfile    
     restart: "no"
 
 networks:
   isard_network:
     external: false
     name: isard_network
+  stonith:
+    driver: macvlan
+    driver_opts:
+      parent: drbd
+    ipam:
+      config:
+        - subnet: 172.31.3.0/24
+
