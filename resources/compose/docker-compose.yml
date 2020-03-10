@@ -8,7 +8,7 @@ services:
     networks:
       - isard_network
     image: rethinkdb
-    restart: unless-stopped
+    restart: "no"
 
   isard-nginx:
     container_name: isard-nginx
@@ -25,7 +25,7 @@ services:
     build:
       context: /opt/isard/devel-isard
       dockerfile: dockers/nginx/Dockerfile    
-    restart: unless-stopped
+    restart: "no"
     depends_on:
       - isard-app
 
@@ -48,7 +48,7 @@ services:
       context: /opt/isard/devel-isard
       dockerfile: dockers/app/Dockerfile
       target: production
-    restart: unless-stopped
+    restart: "no"
     depends_on:
       - isard-database
 
